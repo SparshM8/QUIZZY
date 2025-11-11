@@ -1,5 +1,6 @@
 // @ts-nocheck
 // webhint-disable no-inline-styles
+/* eslint-disable no-inline-styles */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, Shield, Award, BarChart3, Users, Settings, Bell, FileText, Lock, AlertTriangle, CheckCircle, X, Menu, LogOut, Download, Mail, Eye, EyeOff, TrendingUp, Activity, Zap, Loader2, Moon, Sun } from 'lucide-react';
 import { authAPI, examsAPI, studentsAPI, certificatesAPI, analyticsAPI, notificationsAPI } from './api';
@@ -888,10 +889,10 @@ const SecureExamApp: React.FC = () => {
                           <div className="flex items-center space-x-2">
                             <span className="font-semibold">{Math.round(student.examStats?.averageScore || 0)}%</span>
                             <div className="w-16 bg-gray-200 rounded-full h-2">
-                              {/* webhint-disable no-inline-styles */}
-                              {/* webhint-disable no-inline-styles */}
-                              {/* webhint-disable no-inline-styles */}
-                              <div className="bg-blue-600 h-2 rounded-full" style={{width: `${Math.round(student.examStats?.averageScore || 0)}%`}}></div>
+                              <div
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{width: `${Math.round(student.examStats?.averageScore || 0)}%`}} // eslint-disable-line no-inline-styles
+                              ></div>
                             </div>
                           </div>
                         </td>
@@ -1109,10 +1110,11 @@ const SecureExamApp: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Tab Switching Detection</label>
+                        <label htmlFor="tab-switching-detection" className="text-sm font-medium text-gray-700 dark:text-gray-300">Enable Tab Switching Detection</label>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Monitor and log attempts to switch tabs during exams</p>
                       </div>
                       <input
+                        id="tab-switching-detection"
                         type="checkbox"
                         defaultChecked={true}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
@@ -1120,10 +1122,11 @@ const SecureExamApp: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Require Email Verification</label>
+                        <label htmlFor="email-verification" className="text-sm font-medium text-gray-700 dark:text-gray-300">Require Email Verification</label>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Require email verification for new user registrations</p>
                       </div>
                       <input
+                        id="email-verification"
                         type="checkbox"
                         defaultChecked={false}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"

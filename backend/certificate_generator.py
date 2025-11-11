@@ -6,7 +6,7 @@ Generates personalized certificates from templates and participant data
 
 import pandas as pd
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont  # type: ignore
 from datetime import datetime
 import qrcode
 from io import BytesIO
