@@ -1,0 +1,26 @@
+[
+  {
+    "Name": "John Doe",
+    "Course": "Mathematics Fundamentals",
+    "Date": "2025-11-11",
+    "Grade": "A",
+    "Email": "john@student.com",
+    "CertificateID": "CERT-20251111-001"
+  },
+  {
+    "Name": "Jane Smith",
+    "Course": "Physics Mechanics",
+    "Date": "2025-11-11",
+    "Grade": "A+",
+    "Email": "jane@student.com",
+    "CertificateID": "CERT-20251111-002"
+  },
+  {
+    "Name": "Mike Johnson",
+    "Course": "Chemistry Basics",
+    "Date": "2025-11-11",
+    "Grade": "B+",
+    "Email": "mike@student.com",
+    "CertificateID": "CERT-20251111-003"
+  }
+]
