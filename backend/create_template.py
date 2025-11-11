@@ -3,7 +3,7 @@
 Create a basic certificate template
 """
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont  # type: ignore
 import os
 
 def create_certificate_template():
