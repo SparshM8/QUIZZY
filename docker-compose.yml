@@ -7,12 +7,14 @@ services:
     container_name: quizzy-mongodb
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
+      # ⚠️  WARNING: These are development-only credentials
+      # In production, use Docker secrets or external environment variables
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme123}
       MONGO_INITDB_DATABASE: quizzy
     volumes:
       - mongodb_data:/data/db
-      - ./seed.js:/docker-entrypoint-initdb.d/seed.js:ro
+      - ./backend/seed.js:/docker-entrypoint-initdb.d/seed.js:ro
     ports:
       - "27017:27017"
     networks:
@@ -20,14 +22,14 @@ services:
 
   # Backend API
   backend:
-    build: .
+    build: ./backend
     container_name: quizzy-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGODB_URI: mongodb://admin:password123@mongodb:27017/quizzy?authSource=admin
-      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-changeme123}@mongodb:27017/quizzy?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
       JWT_EXPIRE: 30d
       JWT_COOKIE_EXPIRE: 30
       FRONTEND_URL: http://localhost:3000

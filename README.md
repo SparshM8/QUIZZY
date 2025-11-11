@@ -121,7 +121,7 @@ secure-exam-platform/
    MONGODB_URI=mongodb://localhost:27017/secureexam
    
    # For MongoDB Atlas (cloud):
-   # MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/secureexam?retryWrites=true&w=majority
+   # MONGODB_URI=mongodb+srv://your-username:your-password@your-cluster.xxxxx.mongodb.net/your-database?retryWrites=true&w=majority
    
    # JWT Secret - Generate a secure random string:
    JWT_SECRET=your-secure-random-jwt-secret-here
