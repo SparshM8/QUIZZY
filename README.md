@@ -189,12 +189,17 @@ The easiest way to deploy Quizzy is using Docker Compose:
    - Docker and Docker Compose installed
    - At least 4GB RAM available
 
-2. **Quick Deploy**
+2. **Configure Environment (Optional)**
    ```bash
-   # Clone and navigate to project
-   git clone <repository-url>
-   cd secure-exam-platform
+   # Copy environment template
+   cp .env.example .env
+   
+   # Edit .env with your preferred values
+   # Default development credentials are already set
+   ```
 
+3. **Quick Deploy**
+   ```bash
    # Start all services
    docker-compose up -d
    ```
