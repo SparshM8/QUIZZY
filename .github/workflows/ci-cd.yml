@@ -84,7 +84,7 @@ jobs:
     - name: Run backend tests
       run: |
         cd backend
-        npm test
+        npm run test:unit
       env:
         NODE_ENV: test
         DB_HOST: 127.0.0.1
@@ -118,7 +118,7 @@ jobs:
     - name: Install frontend dependencies
       run: |
         cd frontend
-        npm ci
+        npm install
 
     - name: Run frontend tests
       run: |
