@@ -10,10 +10,20 @@ jobs:
   test-backend:
     runs-on: ubuntu-latest
     services:
-      mongodb:
-        image: mongo:7-jammy
+      mysql:
+        image: mysql:8.0
         ports:
-          - 27017:27017
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: quizzy_test
+          MYSQL_USER: quizzy
+          MYSQL_PASSWORD: quizzy
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -p$MYSQL_ROOT_PASSWORD"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
     - name: Checkout code
@@ -31,13 +41,13 @@ jobs:
         cd backend
         npm ci
 
-    - name: Wait for MongoDB
+    - name: Wait for MySQL
       run: |
-        until nc -z localhost 27017; do
-          echo "Waiting for MongoDB..."
+        until nc -z localhost 3306; do
+          echo "Waiting for MySQL..."
           sleep 2
         done
-        echo "MongoDB is ready!"
+        echo "MySQL is ready!"
 
     - name: Seed test database
       run: |
@@ -45,7 +55,11 @@ jobs:
         npm run seed
       env:
         NODE_ENV: test
-        MONGODB_URI: mongodb://localhost:27017/quizzy
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_USER: quizzy
+        DB_PASSWORD: quizzy
+        DB_NAME: quizzy_test
 
     - name: Start backend server
       run: |
@@ -54,7 +68,11 @@ jobs:
         sleep 10
       env:
         NODE_ENV: test
-        MONGODB_URI: mongodb://localhost:27017/quizzy
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_USER: quizzy
+        DB_PASSWORD: quizzy
+        DB_NAME: quizzy_test
         JWT_SECRET: test-jwt-secret-for-ci-cd-pipeline
         PORT: 5000
 
@@ -64,7 +82,11 @@ jobs:
         npm test
       env:
         NODE_ENV: test
-        MONGODB_URI: mongodb://localhost:27017/quizzy
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_USER: quizzy
+        DB_PASSWORD: quizzy
+        DB_NAME: quizzy_test
 
     - name: Check backend security
       run: |

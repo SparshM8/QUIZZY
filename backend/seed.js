@@ -1,36 +1,15 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const User = require('./models/User');
-const Exam = require('./models/Exam');
-const Certificate = require('./models/Certificate');
-const Notification = require('./models/Notification');
+const { sequelize, User, Exam, Certificate, Notification } = require('./models');
 require('dotenv').config();
-
-// Helper function to hash passwords
-const hashPassword = async (password) => {
-  const salt = await bcrypt.genSalt(12);
-  return await bcrypt.hash(password, salt);
-};
 
 const seedDatabase = async () => {
   try {
-    // Connect to MongoDB
-    console.log('🔄 Connecting to MongoDB...');
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/secureexam', {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('✅ Connected to MongoDB');
+    console.log('🔄 Connecting to MySQL...');
+    await sequelize.authenticate();
+    console.log('✅ Connected to MySQL');
 
-    // Clear existing data
-    await User.deleteMany({});
-    await Exam.deleteMany({});
-    await Certificate.deleteMany({});
-    await Notification.deleteMany({});
-    console.log('✅ Cleared existing data');
+    await sequelize.sync({ force: true });
+    console.log('✅ Database schema synced');
 
-    // Create admin user
-    // NOTE: Use plaintext here so Mongoose pre-save middleware hashes the password once.
     const admin = await User.create({
       name: 'System Administrator',
       email: 'admin@quizzy.com',
@@ -40,47 +19,44 @@ const seedDatabase = async () => {
     });
     console.log('✅ Created admin user');
 
-    // Create sample students
-    const studentPassword = await hashPassword('student123');
-    const students = await User.insertMany([
-      {
+    const students = await Promise.all([
+      User.create({
         name: 'John Doe',
         email: 'john@student.com',
-        password: studentPassword,
+        password: 'student123',
         role: 'student',
         isActive: true
-      },
-      {
+      }),
+      User.create({
         name: 'Jane Smith',
         email: 'jane@student.com',
-        password: studentPassword,
+        password: 'student123',
         role: 'student',
         isActive: true
-      },
-      {
+      }),
+      User.create({
         name: 'Mike Johnson',
         email: 'mike@student.com',
-        password: studentPassword,
+        password: 'student123',
         role: 'student',
         isActive: true
-      },
-      {
+      }),
+      User.create({
         name: 'Sarah Wilson',
         email: 'sarah@student.com',
-        password: studentPassword,
+        password: 'student123',
         role: 'student',
         isActive: true
-      }
+      })
     ]);
     console.log('✅ Created sample students');
 
-    // Create sample exams
-    const exams = await Exam.insertMany([
-      {
+    const exams = await Promise.all([
+      Exam.create({
         title: 'Mathematics Fundamentals',
         description: 'Basic mathematics concepts including algebra, geometry, and calculus',
         subject: 'Mathematics',
-        duration: 60, // 60 minutes
+        duration: 60,
         totalQuestions: 20,
         passingScore: 70,
         status: 'active',
@@ -126,10 +102,13 @@ const seedDatabase = async () => {
             explanation: 'In a right triangle, the square of the hypotenuse equals the sum of squares of the other two sides.'
           }
         ],
-        createdBy: admin._id,
-        participants: students.map(s => s._id)
-      },
-      {
+        createdById: admin.id,
+        analytics: {
+          enrolledStudents: students.map((student) => student.id),
+          totalParticipants: students.length
+        }
+      }),
+      Exam.create({
         title: 'Physics Mechanics',
         description: 'Newtonian mechanics, forces, motion, and energy',
         subject: 'Physics',
@@ -163,10 +142,13 @@ const seedDatabase = async () => {
             explanation: 'The acceleration due to gravity on Earth is approximately 9.8 m/s².'
           }
         ],
-        createdBy: admin._id,
-        participants: students.slice(0, 2).map(s => s._id) // First 2 students
-      },
-      {
+        createdById: admin.id,
+        analytics: {
+          enrolledStudents: students.slice(0, 2).map((student) => student.id),
+          totalParticipants: 2
+        }
+      }),
+      Exam.create({
         title: 'Chemistry Basics',
         description: 'Fundamental concepts in chemistry including atoms, molecules, and reactions',
         subject: 'Chemistry',
@@ -192,92 +174,92 @@ const seedDatabase = async () => {
             explanation: 'Water has the chemical formula H2O.'
           }
         ],
-        createdBy: admin._id,
-        participants: []
-      }
+        createdById: admin.id,
+        analytics: {
+          enrolledStudents: [],
+          totalParticipants: 0
+        }
+      })
     ]);
     console.log('✅ Created sample exams');
 
-    // Create sample certificates
-    const certificates = await Certificate.insertMany([
-      {
+    const certificates = await Promise.all([
+      Certificate.create({
         certificateId: `CERT-${Date.now()}-001`,
-        student: students[0]._id,
-        exam: exams[0]._id,
+        studentId: students[0].id,
+        examId: exams[0].id,
         score: 85,
         grade: 'A',
         issuedDate: new Date(),
-        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-        issuedBy: admin._id,
+        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        issuedById: admin.id,
         certificateUrl: `https://secureexam.com/certificates/CERT-${Date.now()}-001`,
+        qrCode: `https://example.com/qr/CERT-${Date.now()}-001`,
         verificationCode: `VER-${Date.now()}-001`
-      },
-      {
+      }),
+      Certificate.create({
         certificateId: `CERT-${Date.now()}-002`,
-        student: students[1]._id,
-        exam: exams[0]._id,
+        studentId: students[1].id,
+        examId: exams[0].id,
         score: 92,
         grade: 'A+',
         issuedDate: new Date(),
         expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-        issuedBy: admin._id,
+        issuedById: admin.id,
         certificateUrl: `https://secureexam.com/certificates/CERT-${Date.now()}-002`,
+        qrCode: `https://example.com/qr/CERT-${Date.now()}-002`,
         verificationCode: `VER-${Date.now()}-002`
-      }
+      })
     ]);
     console.log('✅ Created sample certificates');
 
-    // Create sample notifications
-    const notifications = await Notification.insertMany([
-      {
+    await Promise.all([
+      Notification.create({
         title: 'Welcome to Quizzy!',
         message: 'Your account has been created successfully. You can now take exams and earn certificates.',
-        recipient: students[0]._id,
+        recipientId: students[0].id,
         type: 'info',
         priority: 'medium',
-        sender: admin._id
-      },
-      {
+        senderId: admin.id
+      }),
+      Notification.create({
         title: 'New Exam Available',
         message: 'Mathematics Fundamentals exam is now available. Duration: 60 minutes.',
-        recipient: students[0]._id,
+        recipientId: students[0].id,
         type: 'exam',
         priority: 'high',
-        sender: admin._id,
-        relatedExam: exams[0]._id
-      },
-      {
+        senderId: admin.id,
+        relatedExamId: exams[0].id
+      }),
+      Notification.create({
         title: 'Certificate Earned!',
         message: 'Congratulations! You have earned a certificate for Mathematics Fundamentals.',
-        recipient: students[0]._id,
+        recipientId: students[0].id,
         type: 'certificate',
         priority: 'high',
-        sender: admin._id,
-        relatedCertificate: certificates[0]._id
-      }
+        senderId: admin.id,
+        relatedCertificateId: certificates[0].id
+      })
     ]);
     console.log('✅ Created sample notifications');
 
     console.log('\n🎉 Database seeded successfully!');
     console.log('\n📋 Sample Login Credentials:');
-    console.log('Admin: admin@secureexam.com / admin123');
+    console.log('Admin: admin@quizzy.com / admin123');
     console.log('Students: [name]@student.com / student123');
     console.log('  - john@student.com');
     console.log('  - jane@student.com');
     console.log('  - mike@student.com');
     console.log('  - sarah@student.com');
-
   } catch (error) {
     console.error('❌ Seeding failed:', error.message);
     console.log('\n🔧 Setup Instructions:');
-    console.log('1. Install MongoDB locally: https://www.mongodb.com/try/download/community');
-    console.log('   OR');
-    console.log('2. Use MongoDB Atlas (free cloud): https://www.mongodb.com/atlas');
-    console.log('3. Update MONGODB_URI in .env file with your connection string');
-    console.log('4. Run this script again: node seed.js');
+    console.log('1. Install MySQL locally or use a managed instance');
+    console.log('2. Update DB_* settings in backend .env file');
+    console.log('3. Run this script again: node seed.js');
   } finally {
     try {
-      await mongoose.connection.close();
+      await sequelize.close();
       console.log('✅ Database connection closed');
     } catch (closeError) {
       console.log('⚠️  Could not close database connection:', closeError.message);
@@ -285,7 +267,6 @@ const seedDatabase = async () => {
   }
 };
 
-// Run seeder if this file is executed directly
 if (require.main === module) {
   seedDatabase();
 }
