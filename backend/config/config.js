@@ -15,13 +15,21 @@ const envVarsSchema = Joi.object()
     JWT_COOKIE_EXPIRE: Joi.number().default(30),
     FRONTEND_URL: Joi.string().uri().default('http://localhost:3000'),
     EMAIL_SERVICE: Joi.string().default('gmail'),
-    EMAIL_USER: Joi.string().required().description('Email service user'),
-    EMAIL_PASSWORD: Joi.string().required().description('Email service password'),
     CORS_ORIGIN: Joi.string().default('*'),
     LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'debug').default('info'),
     RATE_LIMIT_WINDOW_MS: Joi.number().default(15 * 60 * 1000),
     RATE_LIMIT_MAX_REQUESTS: Joi.number().default(100),
-    RATE_LIMIT_AUTH_MAX: Joi.number().default(5)
+    RATE_LIMIT_AUTH_MAX: Joi.number().default(5),
+    EMAIL_USER: Joi.when('NODE_ENV', {
+      is: 'test',
+      then: Joi.string().default('ci@example.com'),
+      otherwise: Joi.string().required()
+    }).description('Email service user'),
+    EMAIL_PASSWORD: Joi.when('NODE_ENV', {
+      is: 'test',
+      then: Joi.string().default('dummy-password'),
+      otherwise: Joi.string().required()
+    }).description('Email service password')
   })
   .unknown();
 
