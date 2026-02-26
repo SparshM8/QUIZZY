@@ -149,11 +149,21 @@ jobs:
 
     - name: Validate Docker credentials
       run: |
+        echo "Checking Docker credentials..."
+        USERNAME_SET="${{ secrets.DOCKER_USERNAME != '' }}"
+        PASSWORD_SET="${{ secrets.DOCKER_PASSWORD != '' }}"
+        echo "Username secret exists: $USERNAME_SET"
+        echo "Password secret exists: $PASSWORD_SET"
+        
         if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
-          echo "Error: Missing Docker Hub credentials"
-          echo "Please set DOCKER_USERNAME and DOCKER_PASSWORD in:"
-          echo "  Settings > Secrets and variables > Actions"
-          echo "Use a Docker Hub Access Token for DOCKER_PASSWORD (not your account password)"
+          echo "❌ Error: Missing Docker Hub credentials"
+          echo ""
+          echo "Required secrets in: Settings > Secrets and variables > Actions"
+          echo "  1. DOCKER_USERNAME → your Docker Hub username"
+          echo "  2. DOCKER_PASSWORD → your Docker Hub access token"
+          echo ""
+          echo "⚠️  Secret names are CASE-SENSITIVE"
+          echo "⚠️  Make sure you're in Repository secrets (not Environment or Codespaces)"
           exit 1
         fi
         echo "✓ Docker credentials validated"
