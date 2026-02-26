@@ -1,24 +1,27 @@
 version: '3.8'
 
 services:
-  # MongoDB Database
-  mongodb:
-    image: mongo:7-jammy
-    container_name: quizzy-mongodb
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: quizzy-mysql
     restart: unless-stopped
     environment:
-      # ⚠️  WARNING: These are development-only credentials
-      # In production, use Docker secrets or external environment variables
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-changeme123}
-      MONGO_INITDB_DATABASE: quizzy
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-quizzy}
+      MYSQL_USER: ${DB_USER:-quizzyuser}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-quizzypass}
     volumes:
-      - mongodb_data:/data/db
-      - ./backend/seed.js:/docker-entrypoint-initdb.d/seed.js:ro
+      - mysql_data:/var/lib/mysql
     ports:
-      - "27017:27017"
+      - "3306:3306"
     networks:
       - quizzy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # Backend API
   backend:
@@ -28,17 +31,26 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-changeme123}@mongodb:27017/quizzy?authSource=admin
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-quizzy}
+      DB_USER: ${DB_USER:-quizzyuser}
+      DB_PASSWORD: ${DB_PASSWORD:-quizzypass}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-secure-key-in-production}
       JWT_EXPIRE: 30d
       JWT_COOKIE_EXPIRE: 30
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      EMAIL_SERVICE: ${EMAIL_SERVICE:-gmail}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
+      LOG_LEVEL: info
     ports:
       - "5000:5000"
     volumes:
       - ./uploads:/app/uploads
     depends_on:
-      - mongodb
+      mysql:
+        condition: service_healthy
     networks:
       - quizzy-network
     healthcheck:
@@ -49,18 +61,20 @@ services:
 
   # Frontend
   frontend:
-    build: ../frontend
+    build: ./frontend
     container_name: quizzy-frontend
     restart: unless-stopped
+    environment:
+      REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:5000}
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       - backend
     networks:
       - quizzy-network
 
 volumes:
-  mongodb_data:
+  mysql_data:
 
 networks:
   quizzy-network:

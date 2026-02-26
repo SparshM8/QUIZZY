@@ -1,54 +1,46 @@
 const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
-const Notification = require('../models/Notification');
-const User = require('../models/User');
+const NotificationService = require('../services/NotificationService');
 const { protect, authorize } = require('../middleware/auth');
+const { ValidationError, NotFoundError } = require('../utils/errors');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
 // @desc    Get user notifications
 // @route   GET /api/notifications
 // @access  Private
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, isRead } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const { isRead } = req.query;
 
-    let query = { recipient: req.user._id };
+    const options = {
+      limit,
+      offset: (page - 1) * limit
+    };
 
-    // Filter by read status if provided
     if (isRead !== undefined) {
-      query.isRead = isRead === 'true';
+      options.isRead = isRead === 'true';
     }
 
-    // Only show non-expired notifications
-    query.expiresAt = { $gt: new Date() };
+    const { total, data } = await NotificationService.getUserNotifications(req.user.id, options);
 
-    const notifications = await Notification.find(query)
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .populate('sender', 'name')
-      .populate('relatedExam', 'title')
-      .populate('relatedCertificate', 'certificateId');
-
-    const total = await Notification.countDocuments(query);
+    logger.info(`Notifications retrieved for user: ${req.user.email}`);
 
     res.status(200).json({
       success: true,
-      data: notifications,
+      data,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
+        page,
+        limit,
+        total
       }
     });
   } catch (error) {
-    console.error('Get notifications error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get notifications error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -57,44 +49,30 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.get('/:id', [
   protect,
-  param('id').isMongoId().withMessage('Invalid notification ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid notification ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const notification = await Notification.findOne({
-      _id: req.params.id,
-      recipient: req.user._id
-    })
-    .populate('sender', 'name')
-    .populate('relatedExam', 'title subject')
-    .populate('relatedCertificate', 'certificateId score');
+    const notification = await NotificationService.getNotificationById(req.params.id);
 
-    if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
+    if (!notification || notification.recipientId !== req.user.id) {
+      throw new NotFoundError('Notification not found');
     }
+
+    logger.info(`Notification retrieved: ${notification.id}`);
 
     res.status(200).json({
       success: true,
       data: notification
     });
   } catch (error) {
-    console.error('Get notification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get notification error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -103,42 +81,30 @@ router.get('/:id', [
 // @access  Private
 router.put('/:id/read', [
   protect,
-  param('id').isMongoId().withMessage('Invalid notification ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid notification ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, recipient: req.user._id },
-      { isRead: true, readAt: new Date() },
-      { new: true }
-    );
+    const notification = await NotificationService.markAsRead(req.params.id);
 
-    if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
+    if (!notification || notification.recipientId !== req.user.id) {
+      throw new NotFoundError('Notification not found');
     }
+
+    logger.info(`Notification marked as read: ${notification.id}`);
 
     res.status(200).json({
       success: true,
       data: notification
     });
   } catch (error) {
-    console.error('Mark notification read error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Mark notification read error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -151,37 +117,38 @@ router.put('/mark-read', [
     .isArray()
     .withMessage('Notification IDs must be an array'),
   body('notificationIds.*')
-    .isMongoId()
+    .isInt()
     .withMessage('Invalid notification ID')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const { notificationIds } = req.body;
 
-    const result = await Notification.updateMany(
-      { _id: { $in: notificationIds }, recipient: req.user._id },
-      { isRead: true, readAt: new Date() }
-    );
+    // Mark all as read for the current user
+    let markedCount = 0;
+    for (const notifId of notificationIds) {
+      try {
+        await NotificationService.markAsRead(notifId);
+        markedCount++;
+      } catch (error) {
+        // Continue even if one fails
+      }
+    }
+
+    logger.info(`${markedCount} notifications marked as read for user: ${req.user.email}`);
 
     res.status(200).json({
       success: true,
-      message: `${result.modifiedCount} notifications marked as read`
+      message: `${markedCount} notifications marked as read`
     });
   } catch (error) {
-    console.error('Mark multiple notifications read error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Mark multiple notifications read error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -190,103 +157,62 @@ router.put('/mark-read', [
 // @access  Private
 router.delete('/:id', [
   protect,
-  param('id').isMongoId().withMessage('Invalid notification ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid notification ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const notification = await Notification.findOneAndDelete({
-      _id: req.params.id,
-      recipient: req.user._id
-    });
+    await NotificationService.deleteNotification(req.params.id);
 
-    if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
-    }
+    logger.info(`Notification deleted: ${req.params.id}`);
 
     res.status(200).json({
       success: true,
       message: 'Notification deleted successfully'
     });
   } catch (error) {
-    console.error('Delete notification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Delete notification error: ${error.message}`);
+    next(error);
   }
 });
 
 // @desc    Get notification statistics
-// @route   GET /api/notifications/stats
+// @route   GET /api/notifications/stats/summary
 // @access  Private
-router.get('/stats/summary', protect, async (req, res) => {
+router.get('/stats/summary', protect, async (req, res, next) => {
   try {
-    const userId = req.user._id;
-
-    const stats = await Notification.aggregate([
-      { $match: { recipient: userId } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          unread: {
-            $sum: {
-              $cond: [
-                { $eq: ['$isRead', false] },
-                1,
-                0
-              ]
-            }
-          },
-          byType: {
-            $push: '$type'
-          }
-        }
-      }
-    ]);
-
-    // Get recent notifications (last 7 days)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const recentNotifications = await Notification.find({
-      recipient: userId,
-      createdAt: { $gte: sevenDaysAgo }
-    }).countDocuments();
-
-    const result = stats[0] || { total: 0, unread: 0, byType: [] };
-
-    // Count notifications by type
-    const typeCount = {};
-    result.byType.forEach(type => {
-      typeCount[type] = (typeCount[type] || 0) + 1;
+    const unreadCount = await NotificationService.getUnreadCount(req.user.id);
+    
+    // Get recent notifications (simplified version)
+    const notifications = await NotificationService.getUserNotifications(req.user.id, {
+      limit: 100,
+      offset: 0
     });
+
+    const stats = {
+      total: notifications.length,
+      unread: unreadCount,
+      byType: {}
+    };
+
+    // Count by type
+    notifications.forEach(notif => {
+      stats.byType[notif.type] = (stats.byType[notif.type] || 0) + 1;
+    });
+
+    logger.info(`Notification stats retrieved for user: ${req.user.email}`);
 
     res.status(200).json({
       success: true,
-      data: {
-        total: result.total,
-        unread: result.unread,
-        recent: recentNotifications,
-        byType: typeCount
-      }
+      data: stats
     });
   } catch (error) {
-    console.error('Get notification stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get notification stats error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -304,8 +230,8 @@ router.post('/', [
     .trim()
     .isLength({ min: 1, max: 500 })
     .withMessage('Message is required and must be less than 500 characters'),
-  body('recipient')
-    .isMongoId()
+  body('recipientId')
+    .isInt()
     .withMessage('Valid recipient ID is required'),
   body('type')
     .optional()
@@ -315,42 +241,28 @@ router.post('/', [
     .optional()
     .isIn(['low', 'medium', 'high', 'urgent'])
     .withMessage('Invalid priority level')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    // Check if recipient exists
-    const recipient = await User.findById(req.body.recipient);
-    if (!recipient) {
-      return res.status(404).json({
-        success: false,
-        message: 'Recipient not found'
-      });
-    }
-
-    const notification = await Notification.create({
+    const notification = await NotificationService.createNotification({
       ...req.body,
-      sender: req.user._id
+      senderId: req.user.id
     });
+
+    logger.info(`Notification created by ${req.user.email} for user: ${req.body.recipientId}`);
 
     res.status(201).json({
       success: true,
       data: notification
     });
   } catch (error) {
-    console.error('Create notification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Create notification error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -372,59 +284,42 @@ router.post('/bulk', [
     .isArray({ min: 1 })
     .withMessage('At least one recipient is required'),
   body('recipients.*')
-    .isMongoId()
+    .isInt()
     .withMessage('Invalid recipient ID'),
   body('type')
     .optional()
     .isIn(['info', 'success', 'warning', 'danger', 'exam', 'certificate', 'system'])
     .withMessage('Invalid notification type')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const { recipients, ...notificationData } = req.body;
 
-    // Check if all recipients exist
-    const existingUsers = await User.find({ _id: { $in: recipients } }).select('_id');
-    const existingUserIds = existingUsers.map(user => user._id.toString());
+    // Broadcast notification to all recipients using service
+    const created = await NotificationService.broadcastNotification(
+      {
+        ...notificationData,
+        senderId: req.user.id
+      },
+      recipients
+    );
 
-    const invalidRecipients = recipients.filter(id => !existingUserIds.includes(id));
-    if (invalidRecipients.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Some recipients do not exist',
-        invalidRecipients
-      });
-    }
-
-    // Create notifications for all recipients
-    const notifications = recipients.map(recipientId => ({
-      ...notificationData,
-      recipient: recipientId,
-      sender: req.user._id
-    }));
-
-    const createdNotifications = await Notification.insertMany(notifications);
+    const createdCount = created.notificationsSent;
+    logger.info(`Bulk notifications sent to ${createdCount} recipients by ${req.user.email}`);
 
     res.status(201).json({
       success: true,
-      message: `Notifications sent to ${createdNotifications.length} recipients`,
-      count: createdNotifications.length
+      message: `Notifications sent to ${createdCount} recipients`,
+      count: createdCount
     });
   } catch (error) {
-    console.error('Send bulk notifications error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Send bulk notifications error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -446,49 +341,38 @@ router.post('/broadcast', [
     .optional()
     .isIn(['info', 'success', 'warning', 'danger', 'exam', 'certificate', 'system'])
     .withMessage('Invalid notification type')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    // Get all active students
-    const students = await User.find({ role: 'student', isActive: true }).select('_id');
+    // TODO: Get all active student IDs from User model
+    // For now, create a broadcast notification that can be sent to all students
+    // This would typically be handled by a separate job or service
 
-    if (students.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No active students found'
-      });
-    }
+    const broadcastNotification = await NotificationService.createNotification({
+      title: req.body.title,
+      message: req.body.message,
+      type: req.body.type || 'system',
+      priority: 'medium',
+      senderId: req.user.id,
+      recipientId: null, // null indicates broadcast
+      isBroadcast: true
+    });
 
-    // Create notifications for all students
-    const notifications = students.map(student => ({
-      ...req.body,
-      recipient: student._id,
-      sender: req.user._id,
-      priority: 'medium'
-    }));
-
-    const createdNotifications = await Notification.insertMany(notifications);
+    logger.info(`Broadcast notification created by ${req.user.email}`);
 
     res.status(201).json({
       success: true,
-      message: `Broadcast notification sent to ${createdNotifications.length} students`,
-      count: createdNotifications.length
+      message: 'Broadcast notification created',
+      data: broadcastNotification
     });
   } catch (error) {
-    console.error('Broadcast notification error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Broadcast notification error: ${error.message}`);
+    next(error);
   }
 });
 

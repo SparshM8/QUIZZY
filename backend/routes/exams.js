@@ -1,49 +1,55 @@
 const express = require('express');
 const { body, param, validationResult } = require('express-validator');
-const Exam = require('../models/Exam');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
+const ExamService = require('../services/ExamService');
+const NotificationService = require('../services/NotificationService');
 const { protect, authorize } = require('../middleware/auth');
+const { ValidationError, NotFoundError, ForbiddenError } = require('../utils/errors');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
 // @desc    Get all exams
 // @route   GET /api/exams
 // @access  Private
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, async (req, res, next) => {
   try {
-    let query = {};
+    const options = {
+      limit: parseInt(req.query.limit) || 10,
+      offset: parseInt(req.query.offset) || 0,
+      order: [['createdAt', 'DESC']],
+      include: ['createdBy']
+    };
 
     // Filter by status if provided
+    let filter = {};
     if (req.query.status) {
-      query.status = req.query.status;
+      filter.status = req.query.status;
     }
 
-    // Filter by subject if provided
     if (req.query.subject) {
-      query.subject = req.query.subject;
+      filter.subject = req.query.subject;
     }
 
     // Students can only see active exams, admins see all
     if (req.user.role === 'student') {
-      query.status = 'active';
+      filter.status = 'active';
     }
 
-    const exams = await Exam.find(query)
-      .populate('createdBy', 'name')
-      .sort({ createdAt: -1 });
+    if (filter.status) options.status = filter.status;
+    if (filter.subject) options.subject = filter.subject;
+
+    const { total, data } = await ExamService.getAllExams(options);
+
+    logger.info(`Exams retrieved for user: ${req.user.email}`);
 
     res.status(200).json({
       success: true,
-      count: exams.length,
-      data: exams
+      count: total,
+      data
     });
   } catch (error) {
-    console.error('Get exams error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get exams error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -52,48 +58,35 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.get('/:id', [
   protect,
-  param('id').isMongoId().withMessage('Invalid exam ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid exam ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const exam = await Exam.findById(req.params.id)
-      .populate('createdBy', 'name')
-      .populate('participants.user', 'name email');
+    const exam = await ExamService.getExamById(req.params.id, true);
 
     if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
+      throw new NotFoundError('Exam not found');
     }
 
     // Check if user can access this exam
     if (req.user.role === 'student' && exam.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        message: 'Exam is not currently available'
-      });
+      throw new ForbiddenError('Exam is not currently available');
     }
+
+    logger.info(`Exam retrieved: ${exam.id}`);
 
     res.status(200).json({
       success: true,
       data: exam
     });
   } catch (error) {
-    console.error('Get exam error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get exam error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -124,34 +117,26 @@ router.post('/', [
     .optional()
     .isArray()
     .withMessage('Questions must be an array')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     // Create exam
-    const exam = await Exam.create({
-      ...req.body,
-      createdBy: req.user._id
-    });
+    const exam = await ExamService.createExam(req.body, req.user.id);
+
+    logger.info(`Exam created: ${exam.title} by ${req.user.email}`);
 
     res.status(201).json({
       success: true,
       data: exam
     });
   } catch (error) {
-    console.error('Create exam error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Create exam error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -161,7 +146,7 @@ router.post('/', [
 router.put('/:id', [
   protect,
   authorize('admin'),
-  param('id').isMongoId().withMessage('Invalid exam ID'),
+  param('id').isInt().withMessage('Invalid exam ID'),
   body('title')
     .optional()
     .trim()
@@ -180,51 +165,36 @@ router.put('/:id', [
     .optional()
     .isInt({ min: 0, max: 100 })
     .withMessage('Passing score must be between 0 and 100')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const exam = await Exam.findById(req.params.id);
+    const exam = await ExamService.getExamById(req.params.id);
 
     if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
+      throw new NotFoundError('Exam not found');
     }
 
     // Only allow updates if exam is not completed
     if (exam.status === 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot update a completed exam'
-      });
+      throw new ValidationError('Cannot update a completed exam');
     }
 
-    const updatedExam = await Exam.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const updatedExam = await ExamService.updateExam(req.params.id, req.body);
+
+    logger.info(`Exam updated: ${updatedExam.title} by ${req.user.email}`);
 
     res.status(200).json({
       success: true,
       data: updatedExam
     });
   } catch (error) {
-    console.error('Update exam error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Update exam error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -234,48 +204,37 @@ router.put('/:id', [
 router.delete('/:id', [
   protect,
   authorize('admin'),
-  param('id').isMongoId().withMessage('Invalid exam ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid exam ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const exam = await Exam.findById(req.params.id);
+    const exam = await ExamService.getExamById(req.params.id);
 
     if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
+      throw new NotFoundError('Exam not found');
     }
 
     // Only allow deletion if exam is not active
     if (exam.status === 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete an active exam'
-      });
+      throw new ValidationError('Cannot delete an active exam');
     }
 
-    await Exam.findByIdAndDelete(req.params.id);
+    await ExamService.deleteExam(req.params.id);
+
+    logger.info(`Exam deleted: ${exam.title} by ${req.user.email}`);
 
     res.status(200).json({
       success: true,
       message: 'Exam deleted successfully'
     });
   } catch (error) {
-    console.error('Delete exam error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Delete exam error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -285,66 +244,36 @@ router.delete('/:id', [
 router.post('/:id/start', [
   protect,
   authorize('student'),
-  param('id').isMongoId().withMessage('Invalid exam ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid exam ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const exam = await Exam.findById(req.params.id);
+    const exam = await ExamService.getExamById(req.params.id);
 
     if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
+      throw new NotFoundError('Exam not found');
     }
 
     if (exam.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Exam is not currently active'
-      });
+      throw new ValidationError('Exam is not currently active');
     }
 
-    // Check if student is already enrolled
-    const existingParticipant = exam.participants.find(
-      p => p.user.toString() === req.user._id.toString()
-    );
+    // Enroll student in exam
+    await ExamService.enrollStudent(req.params.id, req.user.id);
 
-    if (existingParticipant && existingParticipant.status === 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'You have already completed this exam'
-      });
-    }
-
-    // Add or update participant
-    if (!existingParticipant) {
-      exam.participants.push({
-        user: req.user._id,
-        status: 'in-progress',
-        startedAt: new Date()
-      });
-    } else {
-      existingParticipant.status = 'in-progress';
-      existingParticipant.startedAt = new Date();
-    }
-
-    await exam.save();
-
-    // Return exam data without answers for security
-    const examData = {
-      ...exam.toObject(),
+    // Return exam data without correct answers for security
+    const safeExam = {
+      id: exam.id,
+      title: exam.title,
+      subject: exam.subject,
+      duration: exam.duration,
+      totalQuestions: exam.questions.length,
       questions: exam.questions.map(q => ({
-        _id: q._id,
         text: q.text,
         options: q.options,
         difficulty: q.difficulty,
@@ -352,16 +281,15 @@ router.post('/:id/start', [
       }))
     };
 
+    logger.info(`Exam started by student: ${req.user.email} for exam: ${exam.title}`);
+
     res.status(200).json({
       success: true,
-      data: examData
+      data: safeExam
     });
   } catch (error) {
-    console.error('Start exam error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Start exam error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -371,103 +299,51 @@ router.post('/:id/start', [
 router.post('/:id/submit', [
   protect,
   authorize('student'),
-  param('id').isMongoId().withMessage('Invalid exam ID'),
+  param('id').isInt().withMessage('Invalid exam ID'),
   body('answers')
     .isArray()
     .withMessage('Answers must be an array')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const { answers } = req.body;
-    const exam = await Exam.findById(req.params.id);
+    const exam = await ExamService.getExamById(req.params.id);
 
     if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
+      throw new NotFoundError('Exam not found');
     }
 
-    // Find participant
-    const participantIndex = exam.participants.findIndex(
-      p => p.user.toString() === req.user._id.toString()
-    );
-
-    if (participantIndex === -1) {
-      return res.status(400).json({
-        success: false,
-        message: 'You are not enrolled in this exam'
-      });
-    }
-
-    const participant = exam.participants[participantIndex];
-
-    if (participant.status === 'completed') {
-      return res.status(400).json({
-        success: false,
-        message: 'Exam already submitted'
-      });
-    }
-
-    // Calculate score
-    let correctAnswers = 0;
-    const detailedAnswers = answers.map((answer, index) => {
-      const question = exam.questions[index];
-      const isCorrect = answer.selectedAnswer === question.correctAnswer;
-      if (isCorrect) correctAnswers++;
-      return {
-        questionIndex: index,
-        selectedAnswer: answer.selectedAnswer,
-        timeSpent: answer.timeSpent || 0,
-        isCorrect
-      };
-    });
-
-    const score = Math.round((correctAnswers / exam.questions.length) * 100);
-    const passed = score >= exam.passingScore;
-
-    // Update participant
-    participant.answers = detailedAnswers;
-    participant.score = score;
-    participant.percentage = score;
-    participant.status = 'completed';
-    participant.submittedAt = new Date();
-
-    await exam.save();
+    // Submit exam using service
+    const result = await ExamService.submitExam(req.params.id, req.user.id, answers);
 
     // Create notification
-    await Notification.create({
+    const message = result.passed 
+      ? `You have successfully submitted ${exam.title}. Your score: ${result.score}% - PASSED`
+      : `You have successfully submitted ${exam.title}. Your score: ${result.score}% - NOT PASSED`;
+
+    await NotificationService.createNotification({
+      recipientId: req.user.id,
       title: 'Exam Submitted',
-      message: `You have successfully submitted ${exam.title}. Your score: ${score}%`,
-      type: passed ? 'success' : 'warning',
-      recipient: req.user._id,
-      relatedExam: exam._id
+      message: message,
+      type: result.passed ? 'success' : 'warning',
+      relatedExamId: exam.id,
+      priority: 'high'
     });
+
+    logger.info(`Exam submitted by student: ${req.user.email}, Score: ${result.score}%`);
 
     res.status(200).json({
       success: true,
-      data: {
-        score,
-        passed,
-        correctAnswers,
-        totalQuestions: exam.questions.length
-      }
+      data: result
     });
   } catch (error) {
-    console.error('Submit exam error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Submit exam error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -477,57 +353,41 @@ router.post('/:id/submit', [
 router.get('/:id/analytics', [
   protect,
   authorize('admin'),
-  param('id').isMongoId().withMessage('Invalid exam ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid exam ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const exam = await Exam.findById(req.params.id)
-      .populate('participants.user', 'name email')
-      .populate('createdBy', 'name');
+    const exam = await ExamService.getExamById(req.params.id, true);
 
     if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
+      throw new NotFoundError('Exam not found');
     }
 
     const analytics = {
-      totalParticipants: exam.participants.length,
-      completedParticipants: exam.participants.filter(p => p.status === 'completed').length,
-      averageScore: exam.analytics.averageScore || 0,
-      passRate: exam.analytics.passRate || 0,
-      averageTime: exam.analytics.averageTime || 0,
-      questionStats: exam.analytics.questionStats || [],
-      participants: exam.participants.map(p => ({
-        name: p.user.name,
-        email: p.user.email,
-        score: p.score,
-        status: p.status,
-        submittedAt: p.submittedAt,
-        tabSwitches: p.tabSwitches
-      }))
+      examId: exam.id,
+      examTitle: exam.title,
+      totalParticipants: exam.analytics?.totalParticipants || 0,
+      averageScore: exam.analytics?.averageScore || 0,
+      passRate: exam.analytics?.passRate || 0,
+      averageTime: exam.analytics?.averageTime || 0,
+      createdAt: exam.createdAt,
+      createdBy: exam.createdBy?.email || 'Unknown Admin'
     };
+
+    logger.info(`Exam analytics retrieved: ${exam.title} by ${req.user.email}`);
 
     res.status(200).json({
       success: true,
       data: analytics
     });
   } catch (error) {
-    console.error('Get exam analytics error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get exam analytics error: ${error.message}`);
+    next(error);
   }
 });
 

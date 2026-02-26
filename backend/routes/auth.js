@@ -3,8 +3,11 @@ const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
-const User = require('../models/User');
+const UserService = require('../services/UserService');
 const { protect } = require('../middleware/auth');
+const { ValidationError, UnauthorizedError, NotFoundError } = require('../utils/errors');
+const config = require('../config/config');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
@@ -15,7 +18,7 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'profile-' + req.user._id + '-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, 'profile-' + req.user.id + '-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
@@ -35,19 +38,19 @@ const upload = multer({
 
 // Generate JWT token
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'your-secret-key', {
-    expiresIn: process.env.JWT_EXPIRE || '30d'
+  return jwt.sign({ id }, config.jwt.secret, {
+    expiresIn: config.jwt.expiresIn
   });
 };
 
 // Send token response
 const sendTokenResponse = (user, statusCode, res) => {
-  const token = generateToken(user._id);
+  const token = generateToken(user.id);
 
   const options = {
-    expires: new Date(Date.now() + (process.env.JWT_COOKIE_EXPIRE || 30) * 24 * 60 * 60 * 1000),
+    expires: new Date(Date.now() + config.jwt.cookieExpiresIn * 24 * 60 * 60 * 1000),
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: config.env === 'production',
     sameSite: 'strict'
   };
 
@@ -59,11 +62,11 @@ const sendTokenResponse = (user, statusCode, res) => {
       token,
       data: {
         user: {
-          id: user._id,
+          id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
-          avatar: user.avatar,
+          avatar: user.avatar || '',
           preferences: user.preferences
         }
       }
@@ -85,44 +88,29 @@ router.post('/register', [
   body('password')
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const { name, email, password, role = 'student' } = req.body;
 
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'User already exists with this email'
-      });
-    }
-
-    // Create user
-    const user = await User.create({
+    // Create user using service
+    const user = await UserService.createUser({
       name,
       email,
       password,
       role
     });
 
+    logger.info(`New user registered: ${email}`);
     sendTokenResponse(user, 201, res);
   } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during registration'
-    });
+    logger.error(`Register error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -137,81 +125,73 @@ router.post('/login', [
   body('password')
     .notEmpty()
     .withMessage('Password is required')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const { email, password } = req.body;
 
     // Check for user
-    const user = await User.findForAuth(email);
+    const user = await UserService.findForAuth(email);
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      throw new UnauthorizedError('Invalid credentials');
     }
 
     // Check if account is locked
-    if (user.isLocked) {
-      return res.status(423).json({
-        success: false,
-        message: 'Account is temporarily locked due to too many failed login attempts'
-      });
+    if (UserService.isLocked(user)) {
+      throw new UnauthorizedError('Account is temporarily locked due to too many failed login attempts');
     }
 
     // Check password
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await UserService.verifyPassword(user, password);
 
     if (!isMatch) {
-      await user.incLoginAttempts();
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      await UserService.incLoginAttempts(user.id);
+      logger.warn(`Failed login attempt for: ${email}`);
+      throw new UnauthorizedError('Invalid credentials');
     }
 
     // Reset login attempts on successful login
-    await user.resetLoginAttempts();
+    await UserService.resetLoginAttempts(user.id);
+    logger.info(`User logged in: ${email}`);
 
     sendTokenResponse(user, 200, res);
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during login'
-    });
+    logger.error(`Login error: ${error.message}`);
+    next(error);
   }
 });
 
 // @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private
-router.get('/me', protect, async (req, res) => {
+router.get('/me', protect, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id)
-      .populate('certificates')
-      .populate('examsTaken.exam', 'title subject');
+    const user = await UserService.findById(req.user.id);
+    
+    logger.info(`User profile retrieved: ${user.email}`);
 
     res.status(200).json({
       success: true,
-      data: { user }
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar,
+          createdAt: user.createdAt
+        }
+      }
     });
   } catch (error) {
-    console.error('Get me error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get profile error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -230,16 +210,12 @@ router.put('/updatedetails', [
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const fieldsToUpdate = {
@@ -252,49 +228,48 @@ router.put('/updatedetails', [
       fieldsToUpdate[key] === undefined && delete fieldsToUpdate[key]
     );
 
-    const user = await User.findByIdAndUpdate(req.user._id, fieldsToUpdate, {
-      new: true,
-      runValidators: true
-    });
+    const user = await UserService.updateUser(req.user.id, fieldsToUpdate);
+
+    logger.info(`User details updated: ${user.email}`);
 
     res.status(200).json({
       success: true,
-      data: { user }
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          avatar: user.avatar
+        }
+      }
     });
   } catch (error) {
-    console.error('Update details error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Update details error: ${error.message}`);
+    next(error);
   }
 });
 
 // @desc    Upload profile picture
 // @route   POST /api/auth/upload-avatar
 // @access  Private
-router.post('/upload-avatar', [protect], upload.single('avatar'), async (req, res) => {
+router.post('/upload-avatar', [protect], upload.single('avatar'), async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please upload a file'
-      });
+      throw new ValidationError('Please upload a file');
     }
 
     // Update user avatar path
     const avatarPath = `/uploads/profiles/${req.file.filename}`;
-    const user = await User.findByIdAndUpdate(req.user._id, { avatar: avatarPath }, {
-      new: true,
-      runValidators: true
-    });
+    const user = await UserService.updateUser(req.user.id, { avatar: avatarPath });
+
+    logger.info(`Avatar uploaded for user: ${user.email}`);
 
     res.status(200).json({
       success: true,
       message: 'Profile picture uploaded successfully',
       data: {
         user: {
-          id: user._id,
+          id: user.id,
           name: user.name,
           email: user.email,
           role: user.role,
@@ -304,11 +279,8 @@ router.post('/upload-avatar', [protect], upload.single('avatar'), async (req, re
       }
     });
   } catch (error) {
-    console.error('Upload avatar error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Upload avatar error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -323,54 +295,54 @@ router.put('/updatepassword', [
   body('newPassword')
     .isLength({ min: 6 })
     .withMessage('New password must be at least 6 characters long')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const user = await User.findById(req.user._id).select('+password');
+    const user = await UserService.findById(req.user.id);
 
     // Check current password
-    if (!(await user.comparePassword(req.body.currentPassword))) {
-      return res.status(401).json({
-        success: false,
-        message: 'Current password is incorrect'
-      });
+    const isMatch = await UserService.verifyPassword(user, req.body.currentPassword);
+    if (!isMatch) {
+      throw new UnauthorizedError('Current password is incorrect');
     }
 
-    user.password = req.body.newPassword;
-    await user.save();
+    // Update password
+    await UserService.updateUser(req.user.id, { password: req.body.newPassword });
+
+    logger.info(`Password updated for user: ${user.email}`);
 
     sendTokenResponse(user, 200, res);
   } catch (error) {
-    console.error('Update password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Update password error: ${error.message}`);
+    next(error);
   }
 });
 
 // @desc    Logout user / clear cookie
 // @route   GET /api/auth/logout
 // @access  Private
-router.get('/logout', (req, res) => {
-  res.cookie('token', 'none', {
-    expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true
-  });
+router.get('/logout', protect, (req, res, next) => {
+  try {
+    logger.info(`User logged out: ${req.user.email}`);
 
-  res.status(200).json({
-    success: true,
-    message: 'User logged out successfully'
-  });
+    res.cookie('token', 'none', {
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly: true
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'User logged out successfully'
+    });
+  } catch (error) {
+    logger.error(`Logout error: ${error.message}`);
+    next(error);
+  }
 });
 
 // @desc    Forgot password
@@ -381,43 +353,33 @@ router.post('/forgotpassword', [
     .isEmail()
     .normalizeEmail()
     .withMessage('Please provide a valid email')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const user = await User.findOne({ email: req.body.email });
+    const user = await UserService.findByEmail(req.body.email);
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      throw new NotFoundError('User not found');
     }
 
     // Generate reset token (simplified - in production use crypto)
     const resetToken = Math.random().toString(36).substring(2, 15);
 
-    // In production, send email with reset link
-    console.log(`Password reset token for ${user.email}: ${resetToken}`);
+    // TODO: In production, send email with reset link and store reset token
+    logger.info(`Password reset requested for user: ${user.email}`);
 
     res.status(200).json({
       success: true,
       message: 'Password reset email sent'
     });
   } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Forgot password error: ${error.message}`);
+    next(error);
   }
 });
 
