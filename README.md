@@ -360,19 +360,68 @@ npm test
 
 ## 🚀 Deployment
 
+### Database Setup (MySQL)
+1. Install MySQL 8.0 locally or use a managed instance
+2. Create database: `CREATE DATABASE quizzy;`
+3. Configure `.env` with database credentials:
+   ```
+   DB_HOST=localhost
+   DB_PORT=3306
+   DB_USER=root
+   DB_PASSWORD=password
+   DB_NAME=quizzy
+   ```
+4. Run seed script: `npm run seed` (backend directory)
+
 ### Backend Deployment
 1. Set `NODE_ENV=production`
-2. Configure production MongoDB URI
-3. Set secure JWT secret
-4. Use PM2 or similar process manager
+2. Configure `.env` with production database URI
+3. Set secure JWT secret (use strong random string)
+4. Set EMAIL_USER and EMAIL_PASSWORD for notifications
+5. Use PM2 or Docker for process management
 
 ### Frontend Deployment
 1. Build the production bundle:
    ```bash
    npm run build
    ```
-2. Serve static files using nginx/apache
-3. Configure API proxy for `/api` routes
+2. Serve static files using nginx or similar
+3. Configure API proxy for `/api` routes to backend
+
+### Docker & CI/CD
+
+#### GitHub Actions Setup (For Docker Hub Builds)
+To enable automatic Docker image builds on push to main:
+
+1. **Create Docker Hub tokens**:
+   - Go to Docker Hub > Account Settings > Security > Access Tokens
+   - Generate new access token (more secure than password)
+
+2. **Add GitHub repository secrets**:
+   - Go to GitHub repo > Settings > Secrets and variables > Actions
+   - Add new repository secret: `DOCKER_USERNAME` = your Docker Hub username
+   - Add new repository secret: `DOCKER_PASSWORD` = Docker Hub access token
+
+3. **Configure backend database for CI**:
+   - The CI workflow uses MySQL test database (auto-created in CI environment)
+   - Seeding happens automatically with `npm run seed`
+   - Unit tests run with Sequelize in-memory/test database
+
+4. **Verify secrets are set before pushing**:
+   - The workflow validates secrets and provides clear error message if missing
+   - Next push to main will trigger Docker image builds automatically
+
+#### Local Docker Build
+```bash
+# Build backend image
+docker build -f backend/Dockerfile -t quizzy-backend:latest ./backend
+
+# Build frontend image  
+docker build -f frontend/Dockerfile -t quizzy-frontend:latest ./frontend
+
+# Run with docker-compose
+docker-compose up -d
+```
 
 ## 🤝 Contributing
 
