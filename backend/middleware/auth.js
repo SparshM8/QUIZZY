@@ -1,5 +1,8 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const UserService = require('../services/UserService');
+const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
+const config = require('../config/config');
+const logger = require('../config/logger');
 
 // Protect routes - require authentication
 const protect = async (req, res, next) => {
@@ -17,46 +20,24 @@ const protect = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Not authorized to access this route'
-      });
+      throw new UnauthorizedError('Not authorized to access this route');
     }
 
-    try {
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    // Verify token
+    const decoded = jwt.verify(token, config.jwt.secret);
 
-      // Get user from token
-      const user = await User.findById(decoded.id).select('-password');
+    // Get user from token
+    const user = await UserService.findById(decoded.id);
 
-      if (!user) {
-        return res.status(401).json({
-          success: false,
-          message: 'No user found with this token'
-        });
-      }
-
-      if (!user.isActive) {
-        return res.status(401).json({
-          success: false,
-          message: 'User account is deactivated'
-        });
-      }
-
-      req.user = user;
-      next();
-    } catch (error) {
-      return res.status(401).json({
-        success: false,
-        message: 'Not authorized to access this route'
-      });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedError('User account is deactivated');
     }
+
+    req.user = user;
+    next();
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'Server error during authentication'
-    });
+    logger.warn(`Auth protect error: ${error.message}`);
+    next(error instanceof UnauthorizedError ? error : new UnauthorizedError('Not authorized to access this route'));
   }
 };
 
@@ -64,17 +45,11 @@ const protect = async (req, res, next) => {
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
+      return next(new UnauthorizedError('User not authenticated'));
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        message: `User role ${req.user.role} is not authorized to access this route`
-      });
+      return next(new ForbiddenError(`User role ${req.user.role} is not authorized to access this route`));
     }
 
     next();
@@ -84,10 +59,7 @@ const authorize = (...roles) => {
 // Check if user owns resource or is admin
 const ownerOrAdmin = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: 'User not authenticated'
-    });
+    return next(new UnauthorizedError('User not authenticated'));
   }
 
   // Admin can access everything
@@ -98,11 +70,8 @@ const ownerOrAdmin = (req, res, next) => {
   // Check if user owns the resource
   const resourceUserId = req.params.userId || req.body.userId || req.params.id;
 
-  if (req.user._id.toString() !== resourceUserId) {
-    return res.status(403).json({
-      success: false,
-      message: 'Not authorized to access this resource'
-    });
+  if (req.user.id.toString() !== resourceUserId.toString()) {
+    return next(new ForbiddenError('Not authorized to access this resource'));
   }
 
   next();
@@ -119,15 +88,14 @@ const optionalAuth = async (req, res, next) => {
 
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-        const user = await User.findById(decoded.id).select('-password');
+        const decoded = jwt.verify(token, config.jwt.secret);
+        const user = await UserService.findById(decoded.id);
 
         if (user && user.isActive) {
           req.user = user;
         }
       } catch (error) {
-        // Token invalid but we don't fail the request
-        console.log('Optional auth token invalid:', error.message);
+        logger.warn(`Optional auth token invalid: ${error.message}`);
       }
     }
 

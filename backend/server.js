@@ -1,5 +1,5 @@
 const express = require('express');
-const mongoose = require('mongoose');
+require('express-async-errors');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -7,6 +7,10 @@ const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+const { sequelize } = require('./models');
+const config = require('./config/config');
+const logger = require('./config/logger');
 
 const app = express();
 
@@ -21,41 +25,21 @@ const notificationRoutes = require('./routes/notifications');
 // Middleware
 app.use(helmet());
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Allow localhost and local network IPs for development
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://10.129.131.23:3000', // Your current frontend origin
-      process.env.FRONTEND_URL
-    ].filter(Boolean);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // In development, allow all origins (be careful with this in production)
-    if (process.env.NODE_ENV !== 'production') {
-      return callback(null, true);
-    }
-
-    return callback(new Error('Not allowed by CORS'));
-  },
+  origin: config.cors.origin === '*' ? true : config.cors.origin,
   credentials: true
 }));
 app.use(compression());
-app.use(morgan('combined'));
+app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.maxRequests,
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
 });
 app.use('/api/', limiter);
 
@@ -64,9 +48,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Rate limiting for auth routes (stricter)
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 auth requests per windowMs
-  message: 'Too many authentication attempts, please try again later.'
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.authMax,
+  message: 'Too many authentication attempts, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false
 });
 
 // Routes
@@ -88,19 +74,28 @@ app.get('/api/health', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  logger.error({
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
+
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || 'Internal Server Error';
+
+  res.status(status).json({
     success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+    message,
+    ...(config.env === 'development' && { error: err.message, stack: err.stack })
   });
 });
 
 // 404 handler
 // Serve React frontend in production
-if (process.env.NODE_ENV === 'production') {
+if (config.env === 'production') {
   const buildPath = path.join(__dirname, '..', 'frontend', 'build');
-  console.log('Production mode: serving frontend from', buildPath);
+  logger.info(`Production mode: serving frontend from ${buildPath}`);
   app.use(express.static(buildPath));
 
   app.get('*', (req, res) => {
@@ -120,45 +115,61 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Database connection
-console.log('🔄 Connecting to MongoDB...');
-console.log('MongoDB URI:', process.env.MONGODB_URI ? 'Set (' + process.env.MONGODB_URI.substring(0, 20) + '...)' : 'Not set');
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/secureexam', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  console.log('Connected to MongoDB');
-})
-.catch((err) => {
-  console.error('MongoDB connection error:', err.message);
-  console.log('Server will continue without database connection for testing purposes');
-});
+// Database connection and server startup
+async function startServer() {
+  try {
+    // Test database connection
+    logger.info('🔄 Connecting to MySQL database...');
+    await sequelize.authenticate();
+    logger.info('✅ MySQL database connected successfully');
 
-// Start server
-const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
+    // Sync database models
+    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    logger.info('✅ Database models synced successfully');
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(async () => {
-    await mongoose.connection.close();
-    console.log('MongoDB connection closed');
-    process.exit(0);
-  });
-});
+    // Start server
+    const PORT = config.port;
+    const server = app.listen(PORT, () => {
+      logger.info(`🚀 Server running on port ${PORT}`);
+      logger.info(`📝 Environment: ${config.env}`);
+      logger.info(`🌐 Frontend URL: ${config.frontend.url}`);
+    });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  server.close(async () => {
-    await mongoose.connection.close();
-    console.log('MongoDB connection closed');
-    process.exit(0);
-  });
-});
+    // Graceful shutdown
+    const gracefulShutdown = async () => {
+      logger.info('Shutting down gracefully...');
+      server.close(async () => {
+        try {
+          await sequelize.close();
+          logger.info('✅ MySQL connection closed');
+          process.exit(0);
+        } catch (err) {
+          logger.error('Error closing database connection:', err);
+          process.exit(1);
+        }
+      });
+
+      // Force shutdown after 10 seconds
+      setTimeout(() => {
+        logger.error('Forced shutdown after graceful shutdown timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    process.on('SIGTERM', gracefulShutdown);
+    process.on('SIGINT', gracefulShutdown);
+
+  } catch (err) {
+    logger.error('Failed to start server:', {
+      message: err.message,
+      code: err.code,
+      errno: err.errno
+    });
+    logger.error('Please check your database configuration in .env file');
+    process.exit(1);
+  }
+}
+
+startServer();
 
 module.exports = app;

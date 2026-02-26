@@ -1,9 +1,10 @@
 const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
-const Certificate = require('../models/Certificate');
-const Exam = require('../models/Exam');
-const User = require('../models/User');
+const CertificateService = require('../services/CertificateService');
+const AnalyticsService = require('../services/AnalyticsService');
 const { protect, authorize } = require('../middleware/auth');
+const { ValidationError, NotFoundError, ForbiddenError, ConflictError } = require('../utils/errors');
+const logger = require('../config/logger');
 const path = require('path');
 const fs = require('fs');
 
@@ -12,40 +13,51 @@ const router = express.Router();
 // @desc    Get all certificates
 // @route   GET /api/certificates
 // @access  Private
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, async (req, res, next) => {
   try {
-    let query = {};
+    const options = {
+      limit: parseInt(req.query.limit) || 10,
+      offset: parseInt(req.query.offset) || 0,
+      order: [['createdAt', 'DESC']]
+    };
+
+    let filter = {};
 
     // Filter by student if provided (admin only)
     if (req.query.student && req.user.role === 'admin') {
-      query.student = req.query.student;
+      filter.studentId = req.query.student;
     } else if (req.user.role === 'student') {
       // Students can only see their own certificates
-      query.student = req.user._id;
+      filter.studentId = req.user.id;
     }
 
     // Filter by status
     if (req.query.status) {
-      query.status = req.query.status;
+      filter.status = req.query.status;
     }
 
-    const certificates = await Certificate.find(query)
-      .populate('student', 'name email')
-      .populate('exam', 'title subject')
-      .populate('issuedBy', 'name')
-      .sort({ issuedDate: -1 });
+    let result;
+    if (req.user.role === 'admin') {
+      result = await CertificateService.getAllCertificates({
+        limit: options.limit,
+        offset: options.offset,
+        status: filter.status,
+        studentId: filter.studentId
+      });
+    } else {
+      result = await CertificateService.getUserCertificates(req.user.id, options);
+    }
+
+    logger.info(`Certificates retrieved for user: ${req.user.email}`);
 
     res.status(200).json({
       success: true,
-      count: certificates.length,
-      data: certificates
+      count: result.total,
+      data: result.data
     });
   } catch (error) {
-    console.error('Get certificates error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get certificates error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -54,50 +66,35 @@ router.get('/', protect, async (req, res) => {
 // @access  Private
 router.get('/:id', [
   protect,
-  param('id').isMongoId().withMessage('Invalid certificate ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid certificate ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const certificate = await Certificate.findById(req.params.id)
-      .populate('student', 'name email')
-      .populate('exam', 'title subject description')
-      .populate('issuedBy', 'name');
+    const certificate = await CertificateService.getCertificateById(req.params.id);
 
     if (!certificate) {
-      return res.status(404).json({
-        success: false,
-        message: 'Certificate not found'
-      });
+      throw new NotFoundError('Certificate not found');
     }
 
     // Check if user can access this certificate
-    if (req.user.role === 'student' &&
-        certificate.student._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to access this certificate'
-      });
+    if (req.user.role === 'student' && certificate.studentId !== req.user.id) {
+      throw new ForbiddenError('Not authorized to access this certificate');
     }
+
+    logger.info(`Certificate retrieved: ${certificate.id}`);
 
     res.status(200).json({
       success: true,
       data: certificate
     });
   } catch (error) {
-    console.error('Get certificate error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get certificate error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -108,109 +105,41 @@ router.post('/generate', [
   protect,
   authorize('admin'),
   body('studentId')
-    .isMongoId()
+    .isInt()
     .withMessage('Valid student ID is required'),
   body('examId')
-    .isMongoId()
+    .isInt()
     .withMessage('Valid exam ID is required'),
   body('score')
     .isInt({ min: 0, max: 100 })
     .withMessage('Score must be between 0 and 100')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const { studentId, examId, score } = req.body;
 
-    // Check if student and exam exist
-    const student = await User.findById(studentId);
-    const exam = await Exam.findById(examId);
-
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: 'Student not found'
-      });
-    }
-
-    if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
-    }
-
-    // Check if certificate already exists
-    const existingCertificate = await Certificate.findOne({
-      student: studentId,
-      exam: examId
-    });
-
-    if (existingCertificate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Certificate already exists for this student and exam'
-      });
-    }
-
-    // Check if student passed the exam
-    const participant = exam.participants.find(
-      p => p.user.toString() === studentId && p.status === 'completed'
+    // Generate certificate using service
+    const certificate = await CertificateService.generateCertificate(
+      examId,
+      studentId,
+      score,
+      req.user.id
     );
 
-    if (!participant) {
-      return res.status(400).json({
-        success: false,
-        message: 'Student has not completed this exam'
-      });
-    }
-
-    // Generate certificate URL (simplified - in production use PDF generation)
-    const certificateUrl = `/certificates/${studentId}/${examId}.pdf`;
-
-    // Create certificate
-    const certificate = await Certificate.create({
-      student: studentId,
-      exam: examId,
-      score: score || participant.score,
-      issuedBy: req.user._id,
-      certificateUrl
-    });
-
-    // Update student's certificates
-    await User.findByIdAndUpdate(studentId, {
-      $push: { certificates: certificate._id }
-    });
-
-    // Update exam participant's certificate
-    await Exam.findOneAndUpdate(
-      { _id: examId, 'participants.user': studentId },
-      { $set: { 'participants.$.certificate': certificate._id } }
-    );
-
-    const populatedCertificate = await Certificate.findById(certificate._id)
-      .populate('student', 'name email')
-      .populate('exam', 'title subject')
-      .populate('issuedBy', 'name');
+    logger.info(`Certificate generated: ${certificate.certificateId} for student: ${studentId}`);
 
     res.status(201).json({
       success: true,
-      data: populatedCertificate
+      data: certificate
     });
   } catch (error) {
-    console.error('Generate certificate error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Generate certificate error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -221,47 +150,39 @@ router.get('/verify/:code', [
   param('code')
     .isLength({ min: 12, max: 12 })
     .withMessage('Invalid verification code')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const certificate = await Certificate.verifyCertificate(req.params.code);
+    const certificate = await CertificateService.verifyCertificate(req.params.code);
 
     if (!certificate) {
-      return res.status(404).json({
-        success: false,
-        message: 'Certificate not found or invalid'
-      });
+      throw new NotFoundError('Certificate not found or invalid');
     }
+
+    logger.info(`Certificate verified: ${certificate.certificateId}`);
 
     res.status(200).json({
       success: true,
       data: {
         certificateId: certificate.certificateId,
-        studentName: certificate.student.name,
-        examTitle: certificate.exam.title,
+        studentName: certificate.student?.name || 'Unknown',
+        examTitle: certificate.exam?.title || 'Unknown',
         score: certificate.score,
         grade: certificate.grade,
         issuedDate: certificate.issuedDate,
         expiryDate: certificate.expiryDate,
-        isValid: certificate.isValid,
-        issuedBy: certificate.issuedBy.name
+        isValid: certificate.isValid(),
+        issuedBy: certificate.issuer?.name || 'Unknown'
       }
     });
   } catch (error) {
-    console.error('Verify certificate error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Verify certificate error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -270,43 +191,30 @@ router.get('/verify/:code', [
 // @access  Private
 router.get('/:id/download', [
   protect,
-  param('id').isMongoId().withMessage('Invalid certificate ID')
-], async (req, res) => {
+  param('id').isInt().withMessage('Invalid certificate ID')
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const certificate = await Certificate.findById(req.params.id)
-      .populate('student')
-      .populate('exam');
+    const certificate = await CertificateService.getCertificateById(req.params.id);
 
     if (!certificate) {
-      return res.status(404).json({
-        success: false,
-        message: 'Certificate not found'
-      });
+      throw new NotFoundError('Certificate not found');
     }
 
     // Check if user can download this certificate
-    if (req.user.role === 'student' &&
-        certificate.student._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to download this certificate'
-      });
+    if (req.user.role === 'student' && certificate.studentId !== req.user.id) {
+      throw new ForbiddenError('Not authorized to download this certificate');
     }
 
-    // Update download count
-    certificate.downloadCount += 1;
-    certificate.lastDownloaded = new Date();
-    await certificate.save();
+    // Record download using service
+    await CertificateService.downloadCertificate(req.params.id);
+
+    logger.info(`Certificate downloaded: ${certificate.certificateId} by user: ${req.user.email}`);
 
     // In production, generate and return actual PDF
     // For now, return certificate data
@@ -316,11 +224,8 @@ router.get('/:id/download', [
       data: certificate
     });
   } catch (error) {
-    console.error('Download certificate error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Download certificate error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -330,95 +235,56 @@ router.get('/:id/download', [
 router.put('/:id/revoke', [
   protect,
   authorize('admin'),
-  param('id').isMongoId().withMessage('Invalid certificate ID'),
+  param('id').isInt().withMessage('Invalid certificate ID'),
   body('reason')
     .trim()
     .notEmpty()
     .withMessage('Revocation reason is required')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
-    const certificate = await Certificate.findById(req.params.id);
+    await CertificateService.revokeCertificate(req.params.id);
 
-    if (!certificate) {
-      return res.status(404).json({
-        success: false,
-        message: 'Certificate not found'
-      });
-    }
-
-    if (certificate.status === 'revoked') {
-      return res.status(400).json({
-        success: false,
-        message: 'Certificate is already revoked'
-      });
-    }
-
-    certificate.status = 'revoked';
-    certificate.metadata.revocationReason = req.body.reason;
-    certificate.metadata.revokedAt = new Date();
-    certificate.metadata.revokedBy = req.user._id;
-
-    await certificate.save();
+    logger.info(`Certificate revoked: ${req.params.id} by ${req.user.email}, Reason: ${req.body.reason}`);
 
     res.status(200).json({
       success: true,
-      message: 'Certificate revoked successfully',
-      data: certificate
+      message: 'Certificate revoked successfully'
     });
   } catch (error) {
-    console.error('Revoke certificate error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Revoke certificate error: ${error.message}`);
+    next(error);
   }
 });
 
 // @desc    Get certificate statistics
 // @route   GET /api/certificates/stats/summary
 // @access  Private (Admin only)
-router.get('/stats/summary', protect, authorize('admin'), async (req, res) => {
+router.get('/stats/summary', protect, authorize('admin'), async (req, res, next) => {
   try {
-    const stats = await Certificate.aggregate([
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          avgScore: { $avg: '$score' }
-        }
-      }
-    ]);
+    const analytics = await AnalyticsService.getCertificateAnalytics();
+    const statusBreakdown = analytics.statusBreakdown || {};
+    const totalCertificates = Object.values(statusBreakdown).reduce((sum, count) => sum + count, 0);
+    const validCertificates = statusBreakdown.issued || 0;
 
-    const totalCertificates = await Certificate.countDocuments();
-    const validCertificates = await Certificate.countDocuments({
-      status: 'issued',
-      expiryDate: { $gt: new Date() }
-    });
+    logger.info(`Certificate statistics retrieved by ${req.user.email}`);
 
     res.status(200).json({
       success: true,
       data: {
         totalCertificates,
         validCertificates,
-        stats
+        stats: statusBreakdown
       }
     });
   } catch (error) {
-    console.error('Get certificate stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Get certificate stats error: ${error.message}`);
+    next(error);
   }
 });
 
@@ -429,39 +295,26 @@ router.post('/generate-bulk', [
   protect,
   authorize('admin'),
   body('examId')
-    .isMongoId()
+    .isInt()
     .withMessage('Valid exam ID is required'),
   body('participants')
     .isArray()
     .withMessage('Participants array is required'),
   body('participants.*.studentId')
-    .isMongoId()
+    .isInt()
     .withMessage('Valid student ID is required'),
   body('participants.*.score')
     .isInt({ min: 0, max: 100 })
     .withMessage('Score must be between 0 and 100')
-], async (req, res) => {
+], async (req, res, next) => {
   try {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
+      throw new ValidationError(errors.array()[0].msg);
     }
 
     const { examId, participants } = req.body;
-
-    // Check if exam exists
-    const exam = await Exam.findById(examId);
-    if (!exam) {
-      return res.status(404).json({
-        success: false,
-        message: 'Exam not found'
-      });
-    }
 
     const results = {
       success: [],
@@ -474,64 +327,12 @@ router.post('/generate-bulk', [
       try {
         const { studentId, score } = participant;
 
-        // Check if student exists
-        const student = await User.findById(studentId);
-        if (!student) {
-          results.failed.push({
-            studentId,
-            reason: 'Student not found'
-          });
-          continue;
-        }
-
-        // Check if certificate already exists
-        const existingCertificate = await Certificate.findOne({
-          student: studentId,
-          exam: examId
-        });
-
-        if (existingCertificate) {
-          results.failed.push({
-            studentId,
-            reason: 'Certificate already exists'
-          });
-          continue;
-        }
-
-        // Check if student passed the exam
-        const examParticipant = exam.participants.find(
-          p => p.user.toString() === studentId && p.status === 'completed'
-        );
-
-        if (!examParticipant) {
-          results.failed.push({
-            studentId,
-            reason: 'Student has not completed this exam'
-          });
-          continue;
-        }
-
-        // Generate certificate URL
-        const certificateUrl = `/certificates/${studentId}/${examId}.pdf`;
-
-        // Create certificate
-        const certificate = await Certificate.create({
-          student: studentId,
-          exam: examId,
-          score: score || examParticipant.score,
-          issuedBy: req.user._id,
-          certificateUrl
-        });
-
-        // Update student's certificates
-        await User.findByIdAndUpdate(studentId, {
-          $push: { certificates: certificate._id }
-        });
-
-        // Update exam participant's certificate
-        await Exam.findOneAndUpdate(
-          { _id: examId, 'participants.user': studentId },
-          { $set: { 'participants.$.certificate': certificate._id } }
+        // Generate certificate using service
+        const certificate = await CertificateService.generateCertificate(
+          examId,
+          studentId,
+          score,
+          req.user.id
         );
 
         results.success.push({
@@ -549,43 +350,39 @@ router.post('/generate-bulk', [
       }
     }
 
+    logger.info(`Bulk certificates generated: ${results.success.length} successful, ${results.failed.length} failed`);
+
     res.status(200).json({
       success: true,
       data: results
     });
 
   } catch (error) {
-    console.error('Bulk generate certificates error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Bulk generate certificates error: ${error.message}`);
+    next(error);
   }
 });
 
-// @desc    Download certificate
+// @desc    Download certificate (alternative route)
 // @route   GET /api/certificates/download/:certificateId
 // @access  Private
-router.get('/download/:certificateId', protect, async (req, res) => {
+router.get('/download/:certificateId', protect, async (req, res, next) => {
   try {
-    const certificate = await Certificate.findById(req.params.certificateId)
-      .populate('student', 'name email')
-      .populate('exam', 'title subject');
+    const certificate = await CertificateService.getCertificateById(parseInt(req.params.certificateId));
 
     if (!certificate) {
-      return res.status(404).json({
-        success: false,
-        message: 'Certificate not found'
-      });
+      throw new NotFoundError('Certificate not found');
     }
 
     // Check permissions (student can download their own, admin can download any)
-    if (req.user.role !== 'admin' && certificate.student._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Not authorized to download this certificate'
-      });
+    if (req.user.role !== 'admin' && certificate.studentId !== req.user.id) {
+      throw new ForbiddenError('Not authorized to download this certificate');
     }
+
+    // Record download
+    await CertificateService.downloadCertificate(certificate.id);
+
+    logger.info(`Certificate downloaded: ${certificate.certificateId} by user: ${req.user.email}`);
 
     // For now, return certificate data (in production, generate and return PDF)
     res.status(200).json({
@@ -594,11 +391,8 @@ router.get('/download/:certificateId', protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Download certificate error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    logger.error(`Download certificate error: ${error.message}`);
+    next(error);
   }
 });
 
