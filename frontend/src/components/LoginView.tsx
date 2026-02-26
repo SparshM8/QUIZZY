@@ -50,24 +50,24 @@ const LoginView: React.FC<LoginViewProps> = ({
     {/* Animated Background Elements */}
     <div className="absolute inset-0 overflow-hidden">
       {/* Floating Mathematical Symbols */}
-      <div className="absolute top-20 left-10 animate-bounce" style={{ animationDelay: '0s', animationDuration: '3s' }}> {/* eslint-disable-line no-inline-styles */}
+      <div className="absolute top-20 left-10 animate-bounce" style={{ animationDelay: '0s', animationDuration: '3s' }}>
         <div className="text-6xl text-red-200 font-bold">π</div>
       </div>
-      <div className="absolute top-40 right-20 animate-bounce" style={{ animationDelay: '1s', animationDuration: '4s' }}> {/* eslint-disable-line no-inline-styles */}
+      <div className="absolute top-40 right-20 animate-bounce" style={{ animationDelay: '1s', animationDuration: '4s' }}>
         <div className="text-5xl text-red-300 font-bold">∑</div>
       </div>
-      <div className="absolute bottom-32 left-20 animate-bounce" style={{ animationDelay: '2s', animationDuration: '3.5s' }}> {/* eslint-disable-line no-inline-styles */}
+      <div className="absolute bottom-32 left-20 animate-bounce" style={{ animationDelay: '2s', animationDuration: '3.5s' }}>
         <div className="text-4xl text-red-400 font-bold">√</div>
       </div>
-      <div className="absolute bottom-20 right-10 animate-bounce" style={{ animationDelay: '0.5s', animationDuration: '4.5s' }}> {/* eslint-disable-line no-inline-styles */}
+      <div className="absolute bottom-20 right-10 animate-bounce" style={{ animationDelay: '0.5s', animationDuration: '4.5s' }}>
         <div className="text-5xl text-red-200 font-bold">∫</div>
       </div>
 
       {/* Geometric Shapes */}
-      <div className="absolute top-1/4 left-1/4 animate-spin" style={{ animationDuration: '20s' }}> {/* eslint-disable-line no-inline-styles */}
+      <div className="absolute top-1/4 left-1/4 animate-spin" style={{ animationDuration: '20s' }}>
         <div className="w-16 h-16 border-4 border-red-200 rounded-full opacity-20"></div>
       </div>
-      <div className="absolute bottom-1/4 right-1/4 animate-spin" style={{ animationDuration: '25s', animationDirection: 'reverse' }}> {/* eslint-disable-line no-inline-styles */}
+      <div className="absolute bottom-1/4 right-1/4 animate-spin" style={{ animationDuration: '25s', animationDirection: 'reverse' }}>
         <div className="w-12 h-12 border-4 border-red-300 rotate-45 opacity-30"></div>
       </div>
     </div>

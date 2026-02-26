@@ -1,6 +1,4 @@
 // @ts-nocheck
-// webhint-disable no-inline-styles
-/* eslint-disable no-inline-styles */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, Shield, Award, BarChart3, Users, Settings, Bell, FileText, Lock, AlertTriangle, CheckCircle, X, Menu, LogOut, Download, Mail, Eye, EyeOff, TrendingUp, Activity, Zap, Loader2, Moon, Sun } from 'lucide-react';
 import { authAPI, examsAPI, studentsAPI, certificatesAPI, analyticsAPI, notificationsAPI } from './api';
@@ -891,7 +889,7 @@ const SecureExamApp: React.FC = () => {
                             <div className="w-16 bg-gray-200 rounded-full h-2">
                               <div
                                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                style={{width: `${Math.round(student.examStats?.averageScore || 0)}%`}} // eslint-disable-line no-inline-styles
+                                style={{width: `${Math.round(student.examStats?.averageScore || 0)}%`}}
                               ></div>
                             </div>
                           </div>

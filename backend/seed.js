@@ -14,8 +14,7 @@ const seedDatabase = async () => {
       name: 'System Administrator',
       email: 'admin@quizzy.com',
       password: 'admin123',
-      role: 'admin',
-      isActive: true
+      role: 'admin'
     });
     console.log('✅ Created admin user');
 
@@ -24,29 +23,25 @@ const seedDatabase = async () => {
         name: 'John Doe',
         email: 'john@student.com',
         password: 'student123',
-        role: 'student',
-        isActive: true
+        role: 'student'
       }),
       User.create({
         name: 'Jane Smith',
         email: 'jane@student.com',
         password: 'student123',
-        role: 'student',
-        isActive: true
+        role: 'student'
       }),
       User.create({
         name: 'Mike Johnson',
         email: 'mike@student.com',
         password: 'student123',
-        role: 'student',
-        isActive: true
+        role: 'student'
       }),
       User.create({
         name: 'Sarah Wilson',
         email: 'sarah@student.com',
         password: 'student123',
-        role: 'student',
-        isActive: true
+        role: 'student'
       })
     ]);
     console.log('✅ Created sample students');
