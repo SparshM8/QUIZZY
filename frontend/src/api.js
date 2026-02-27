@@ -72,6 +72,14 @@ export const authAPI = {
       return response.json();
     });
   },
+
+  // Role management endpoints (super admin only)
+  getAdmins: () => apiRequest('/auth/admins'),
+
+  updateUserRole: (userId, role) => apiRequest(`/auth/admins/${userId}/role`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  }),
 };
 
 // Exams API
@@ -82,6 +90,8 @@ export const examsAPI = {
   },
 
   getExam: (id) => apiRequest(`/exams/${id}`),
+
+  getExamByJoinCode: (code) => apiRequest(`/exams/join/${code}`),
 
   createExam: (examData) => apiRequest('/exams', {
     method: 'POST',
@@ -95,6 +105,12 @@ export const examsAPI = {
 
   deleteExam: (id) => apiRequest(`/exams/${id}`, {
     method: 'DELETE',
+  }),
+
+  getInviteLink: (id) => apiRequest(`/exams/${id}/invite-link`),
+
+  regenerateInviteLink: (id) => apiRequest(`/exams/${id}/invite-link/regenerate`, {
+    method: 'POST'
   }),
 
   startExam: (id) => apiRequest(`/exams/${id}/start`, {

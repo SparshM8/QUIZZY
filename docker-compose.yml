@@ -39,10 +39,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-to-a-secure-key-in-production}
       JWT_EXPIRE: 30d
       JWT_COOKIE_EXPIRE: 30
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       EMAIL_SERVICE: ${EMAIL_SERVICE:-gmail}
-      EMAIL_USER: ${EMAIL_USER}
-      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
       LOG_LEVEL: info
     ports:
       - "5000:5000"

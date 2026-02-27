@@ -34,7 +34,7 @@ module.exports = (sequelize) => {
       }
     },
     role: {
-      type: DataTypes.ENUM('student', 'admin'),
+      type: DataTypes.ENUM('student', 'manager', 'admin', 'super_admin'),
       defaultValue: 'student'
     },
     avatar: {
@@ -69,7 +69,7 @@ module.exports = (sequelize) => {
     tableName: 'users',
     indexes: [
       { fields: ['email'] },
-      { fields: ['isActive'] }
+      { fields: ['is_active'] }
     ]
   });
 

@@ -1,14 +1,30 @@
 const { Exam, User, Certificate } = require('../models');
 const { NotFoundError, ValidationError } = require('../utils/errors');
+const crypto = require('crypto');
 
 class ExamService {
+  static async generateUniqueJoinCode() {
+    for (let i = 0; i < 10; i += 1) {
+      const joinCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+      const existing = await Exam.findOne({ where: { joinCode } });
+      if (!existing) {
+        return joinCode;
+      }
+    }
+
+    throw new ValidationError('Unable to generate unique join code. Please try again.');
+  }
+
   // Create exam
   static async createExam(examData, createdById) {
     try {
+      const joinCode = await this.generateUniqueJoinCode();
+
       const exam = await Exam.create({
         ...examData,
         createdById,
-        questions: examData.questions || []
+        questions: examData.questions || [],
+        joinCode
       });
 
       return exam;
@@ -18,6 +34,28 @@ class ExamService {
       }
       throw error;
     }
+  }
+
+  // Regenerate join code
+  static async regenerateJoinCode(examId) {
+    const exam = await this.getExamById(examId);
+    const joinCode = await this.generateUniqueJoinCode();
+    await exam.update({ joinCode });
+    return exam;
+  }
+
+  // Get exam by join code
+  static async getExamByJoinCode(joinCode) {
+    const exam = await Exam.findOne({
+      where: { joinCode },
+      include: [{ model: User, as: 'creator', attributes: ['id', 'name'] }]
+    });
+
+    if (!exam) {
+      throw new NotFoundError('Invalid exam join link');
+    }
+
+    return exam;
   }
 
   // Get exam by ID

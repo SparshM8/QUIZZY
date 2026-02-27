@@ -4,6 +4,7 @@ const ExamService = require('../services/ExamService');
 const NotificationService = require('../services/NotificationService');
 const { protect, authorize } = require('../middleware/auth');
 const { ValidationError, NotFoundError, ForbiddenError } = require('../utils/errors');
+const { ROLES } = require('../utils/roles');
 const logger = require('../config/logger');
 
 const router = express.Router();
@@ -49,6 +50,42 @@ router.get('/', protect, async (req, res, next) => {
     });
   } catch (error) {
     logger.error(`Get exams error: ${error.message}`);
+    next(error);
+  }
+});
+
+// @desc    Get exam details by share code
+// @route   GET /api/exams/join/:code
+// @access  Public
+router.get('/join/:code', [
+  param('code')
+    .isLength({ min: 6, max: 16 })
+    .withMessage('Invalid join code')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new ValidationError(errors.array()[0].msg);
+    }
+
+    const exam = await ExamService.getExamByJoinCode(req.params.code.toUpperCase());
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: exam.id,
+        title: exam.title,
+        subject: exam.subject,
+        description: exam.description,
+        duration: exam.duration,
+        totalQuestions: exam.totalQuestions,
+        status: exam.status,
+        joinCode: exam.joinCode,
+        creator: exam.creator
+      }
+    });
+  } catch (error) {
+    logger.error(`Join exam lookup error: ${error.message}`);
     next(error);
   }
 });
@@ -136,6 +173,74 @@ router.post('/', [
     });
   } catch (error) {
     logger.error(`Create exam error: ${error.message}`);
+    next(error);
+  }
+});
+
+// @desc    Get exam invite link
+// @route   GET /api/exams/:id/invite-link
+// @access  Private (Manager/Admin/Super Admin)
+router.get('/:id/invite-link', [
+  protect,
+  authorize(ROLES.MANAGER),
+  param('id').isInt().withMessage('Invalid exam ID')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new ValidationError(errors.array()[0].msg);
+    }
+
+    const exam = await ExamService.getExamById(req.params.id);
+    const origin = req.get('origin') || process.env.FRONTEND_URL || 'http://localhost';
+
+    if (!exam.joinCode) {
+      await ExamService.regenerateJoinCode(req.params.id);
+    }
+
+    const refreshedExam = await ExamService.getExamById(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        examId: refreshedExam.id,
+        joinCode: refreshedExam.joinCode,
+        joinUrl: `${origin}/join/${refreshedExam.joinCode}`
+      }
+    });
+  } catch (error) {
+    logger.error(`Get invite link error: ${error.message}`);
+    next(error);
+  }
+});
+
+// @desc    Regenerate exam invite link
+// @route   POST /api/exams/:id/invite-link/regenerate
+// @access  Private (Manager/Admin/Super Admin)
+router.post('/:id/invite-link/regenerate', [
+  protect,
+  authorize(ROLES.MANAGER),
+  param('id').isInt().withMessage('Invalid exam ID')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new ValidationError(errors.array()[0].msg);
+    }
+
+    const exam = await ExamService.regenerateJoinCode(req.params.id);
+    const origin = req.get('origin') || process.env.FRONTEND_URL || 'http://localhost';
+
+    res.status(200).json({
+      success: true,
+      data: {
+        examId: exam.id,
+        joinCode: exam.joinCode,
+        joinUrl: `${origin}/join/${exam.joinCode}`
+      }
+    });
+  } catch (error) {
+    logger.error(`Regenerate invite link error: ${error.message}`);
     next(error);
   }
 });

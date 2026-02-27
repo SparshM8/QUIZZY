@@ -124,7 +124,7 @@ async function startServer() {
     logger.info('✅ MySQL database connected successfully');
 
     // Sync database models
-    await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
+    await sequelize.sync({ force: process.env.DB_FORCE_SYNC === 'true', alter: process.env.NODE_ENV === 'development' });
     logger.info('✅ Database models synced successfully');
 
     // Start server

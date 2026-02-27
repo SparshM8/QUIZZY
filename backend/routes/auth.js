@@ -1,11 +1,12 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const UserService = require('../services/UserService');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { ValidationError, UnauthorizedError, NotFoundError } = require('../utils/errors');
+const { ROLES } = require('../utils/roles');
 const config = require('../config/config');
 const logger = require('../config/logger');
 
@@ -87,7 +88,11 @@ router.post('/register', [
     .withMessage('Please provide a valid email'),
   body('password')
     .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long')
+    .withMessage('Password must be at least 6 characters long'),
+  body('role')
+    .optional()
+    .isIn([ROLES.STUDENT])
+    .withMessage('Only student registration is allowed from public signup')
 ], async (req, res, next) => {
   try {
     // Check for validation errors
@@ -96,14 +101,14 @@ router.post('/register', [
       throw new ValidationError(errors.array()[0].msg);
     }
 
-    const { name, email, password, role = 'student' } = req.body;
+    const { name, email, password } = req.body;
 
     // Create user using service
     const user = await UserService.createUser({
       name,
       email,
       password,
-      role
+      role: ROLES.STUDENT
     });
 
     logger.info(`New user registered: ${email}`);
@@ -379,6 +384,61 @@ router.post('/forgotpassword', [
     });
   } catch (error) {
     logger.error(`Forgot password error: ${error.message}`);
+    next(error);
+  }
+});
+
+// @desc    List administrative users
+// @route   GET /api/auth/admins
+// @access  Private (Super Admin)
+router.get('/admins', [protect, authorize(ROLES.SUPER_ADMIN)], async (req, res, next) => {
+  try {
+    const { data } = await UserService.getAllUsers({ limit: 1000, offset: 0 });
+    const adminUsers = data.filter((user) => user.role !== ROLES.STUDENT);
+
+    res.status(200).json({
+      success: true,
+      count: adminUsers.length,
+      data: adminUsers
+    });
+  } catch (error) {
+    logger.error(`List admins error: ${error.message}`);
+    next(error);
+  }
+});
+
+// @desc    Assign or change administration level
+// @route   PUT /api/auth/admins/:id/role
+// @access  Private (Super Admin)
+router.put('/admins/:id/role', [
+  protect,
+  authorize(ROLES.SUPER_ADMIN),
+  param('id').isInt().withMessage('Invalid user ID'),
+  body('role')
+    .isIn([ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN])
+    .withMessage('Role must be manager, admin, or super_admin')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new ValidationError(errors.array()[0].msg);
+    }
+
+    if (parseInt(req.params.id, 10) === req.user.id && req.body.role !== ROLES.SUPER_ADMIN) {
+      throw new ValidationError('Super admin cannot downgrade their own role');
+    }
+
+    const updatedUser = await UserService.updateUser(req.params.id, { role: req.body.role });
+
+    logger.info(`Role updated: ${updatedUser.email} -> ${req.body.role} by ${req.user.email}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'User role updated successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    logger.error(`Update role error: ${error.message}`);
     next(error);
   }
 });
