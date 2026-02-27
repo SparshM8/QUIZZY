@@ -81,9 +81,9 @@ module.exports = (sequelize) => {
     timestamps: true,
     tableName: 'notifications',
     indexes: [
-      { fields: ['recipientId', 'isRead', 'createdAt'] },
-      { fields: ['expiresAt'] },
-      { fields: ['scheduledFor'] }
+      { fields: ['recipient_id', 'is_read', 'created_at'] },
+      { fields: ['expires_at'] },
+      { fields: ['scheduled_for'] }
     ]
   });
 

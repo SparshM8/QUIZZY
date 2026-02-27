@@ -87,14 +87,20 @@ module.exports = (sequelize) => {
         averageTime: 0,
         questionStats: []
       }
+    },
+    joinCode: {
+      type: DataTypes.STRING(16),
+      allowNull: true,
+      unique: true
     }
   }, {
     timestamps: true,
     tableName: 'exams',
     indexes: [
-      { fields: ['status', 'scheduledDate'] },
-      { fields: ['createdById'] },
-      { fields: ['status'] }
+      { fields: ['status', 'scheduled_date'] },
+      { fields: ['created_by_id'] },
+      { fields: ['status'] },
+      { fields: ['join_code'] }
     ]
   });
 

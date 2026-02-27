@@ -9,7 +9,5 @@ build
 .git
 .gitignore
 README.md
-src
-public
 .nyc_output
 coverage

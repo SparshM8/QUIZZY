@@ -87,10 +87,10 @@ module.exports = (sequelize) => {
     timestamps: true,
     tableName: 'certificates',
     indexes: [
-      { fields: ['studentId', 'examId'] },
-      { fields: ['certificateId'] },
-      { fields: ['verificationCode'] },
-      { fields: ['status', 'expiryDate'] }
+      { fields: ['student_id', 'exam_id'] },
+      { fields: ['certificate_id'] },
+      { fields: ['verification_code'] },
+      { fields: ['status', 'expiry_date'] }
     ]
   });
 

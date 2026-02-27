@@ -1,12 +1,15 @@
 // @ts-nocheck
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, Shield, Award, BarChart3, Users, Settings, Bell, FileText, Lock, AlertTriangle, CheckCircle, X, Menu, LogOut, Download, Mail, Eye, EyeOff, TrendingUp, Activity, Zap, Loader2, Moon, Sun } from 'lucide-react';
+import { Clock, Shield, Award, BarChart3, Users, Settings, Bell, FileText, Lock, AlertTriangle, CheckCircle, X, Menu, LogOut, Download, Mail, Eye, EyeOff, TrendingUp, Activity, Zap, Loader2, Moon, Sun, BookOpen, UserCog } from 'lucide-react';
 import { authAPI, examsAPI, studentsAPI, certificatesAPI, analyticsAPI, notificationsAPI } from './api';
 import LoginView from './components/LoginView';
+import LandingPage from './components/LandingPage';
 import StudentDashboard from './components/StudentDashboard';
 import ExamView from './components/ExamView';
 import ResultsView from './components/ResultsView';
 import BulkCertificateGenerator from './components/BulkCertificateGenerator';
+import RoleManagement from './components/RoleManagement';
+import ExamInviteLink from './components/ExamInviteLink';
 
 // Type definitions
 interface User {
@@ -124,6 +127,11 @@ interface ExamResult {
   timeTaken?: number;
 }
 
+// Helper function to check if user role has admin privileges
+const isAdminRole = (role: string | undefined): boolean => {
+  return role === 'super_admin' || role === 'admin' || role === 'manager';
+};
+
 const SecureExamApp: React.FC = () => {
   const [currentView, setCurrentView] = useState<string>('login');
   const [user, setUser] = useState<User | null>(null);
@@ -140,6 +148,7 @@ const SecureExamApp: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [analytics, setAnalytics] = useState<Analytics>({});
   const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [joinCode, setJoinCode] = useState<string>('');
 
   // API data states
   const [exams, setExams] = useState<Exam[]>([]);
@@ -157,6 +166,7 @@ const SecureExamApp: React.FC = () => {
   // Modal states
   const [showCreateExamModal, setShowCreateExamModal] = useState<boolean>(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState<boolean>(false);
+  const [showExamDetailsModal, setShowExamDetailsModal] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [examFormData, setExamFormData] = useState<ExamFormData>({
     title: '',
@@ -193,6 +203,13 @@ const SecureExamApp: React.FC = () => {
 
   // Check for existing authentication on app load
   useEffect(() => {
+    const pathMatch = window.location.pathname.match(/^\/join\/([A-Za-z0-9]+)$/);
+    if (pathMatch) {
+      setJoinCode(pathMatch[1].toUpperCase());
+      setCurrentView('login');
+      setIsLoginMode(true);
+    }
+
     const token = localStorage.getItem('token');
     if (token) {
       loadUserProfile();
@@ -212,11 +229,11 @@ const SecureExamApp: React.FC = () => {
   const loadUserProfile = async () => {
     try {
       const response = await authAPI.getProfile();
-      setUser(response.data);
-      setCurrentView(response.data.role === 'admin' ? 'dashboard' : 'student-dashboard');
+      setUser(response.data.user);
+      setCurrentView(isAdminRole(response.data.user.role) ? 'dashboard' : 'student-dashboard');
     } catch (error) {
       localStorage.removeItem('token');
-      setCurrentView('login');
+      setCurrentView('landing');
     }
   };
 
@@ -230,7 +247,7 @@ const SecureExamApp: React.FC = () => {
   };
 
   const loadStudents = async () => {
-    if (user?.role === 'admin') {
+    if (isAdminRole(user?.role)) {
       try {
         const response = await studentsAPI.getStudents();
         setStudents(response.data);
@@ -259,7 +276,7 @@ const SecureExamApp: React.FC = () => {
   };
 
   const loadAnalytics = async () => {
-    if (user?.role === 'admin') {
+    if (isAdminRole(user?.role)) {
       try {
         const response = await analyticsAPI.getOverview();
         setAnalytics(response.data);
@@ -277,9 +294,9 @@ const SecureExamApp: React.FC = () => {
 
     try {
       const response = await authAPI.login(loginData);
-      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('token', response.token);
       setUser(response.data.user);
-      setCurrentView(response.data.user.role === 'admin' ? 'dashboard' : 'student-dashboard');
+      setCurrentView(isAdminRole(response.data.user.role) ? 'dashboard' : 'student-dashboard');
 
       // Load initial data
       await Promise.all([
@@ -289,6 +306,15 @@ const SecureExamApp: React.FC = () => {
         loadAnalytics(),
         loadStudents()
       ]);
+
+      if (joinCode && !isAdminRole(response.data.user.role)) {
+        try {
+          const linkedExam = await examsAPI.getExamByJoinCode(joinCode);
+          addNotification('Exam Link Verified', `Ready to join: ${linkedExam.data.title}`, 'success');
+        } catch (joinError) {
+          addNotification('Invite Link Error', 'The provided exam invite link is invalid.', 'error');
+        }
+      }
 
       addNotification('Login Successful', `Welcome back, ${response.data.user.name}!`, 'success');
     } catch (error) {
@@ -305,9 +331,9 @@ const SecureExamApp: React.FC = () => {
 
     try {
       const response = await authAPI.register(registerData);
-      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('token', response.token);
       setUser(response.data.user);
-      setCurrentView(response.data.user.role === 'admin' ? 'dashboard' : 'student-dashboard');
+      setCurrentView(isAdminRole(response.data.user.role) ? 'dashboard' : 'student-dashboard');
 
       // Load initial data
       await Promise.all([
@@ -329,7 +355,7 @@ const SecureExamApp: React.FC = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    setCurrentView('login');
+    setCurrentView('landing');
     setExams([]);
     setStudents([]);
     setCertificates([]);
@@ -485,7 +511,7 @@ const SecureExamApp: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await examsAPI.createExam(examFormData);
+      const createdExam = await examsAPI.createExam(examFormData);
       setShowCreateExamModal(false);
       setExamFormData({
         title: '',
@@ -498,7 +524,18 @@ const SecureExamApp: React.FC = () => {
         questions: []
       });
       await loadExams();
-      addNotification('Exam Created', 'New exam has been created successfully', 'success');
+
+      const examId = createdExam?.data?.id || createdExam?.data?._id;
+      if (examId) {
+        try {
+          const inviteResponse = await examsAPI.getInviteLink(examId);
+          addNotification('Exam Created', `Invite link: ${inviteResponse.data.joinUrl}`, 'success');
+        } catch (inviteError) {
+          addNotification('Exam Created', 'New exam created. Invite link generation failed.', 'info');
+        }
+      } else {
+        addNotification('Exam Created', 'New exam has been created successfully', 'success');
+      }
     } catch (error) {
       setError('Failed to create exam: ' + error.message);
     } finally {
@@ -581,13 +618,13 @@ const SecureExamApp: React.FC = () => {
       {/* Sidebar */}
       <div className={`bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white transition-all duration-300 shadow-2xl ${sidebarOpen ? 'w-64' : 'w-20'}`}>
         <div className="p-4 flex items-center justify-between">
-          {sidebarOpen && <h2 className="text-xl font-bold">{user?.role === 'admin' ? 'Admin Panel' : 'Student Panel'}</h2>}
+          {sidebarOpen && <h2 className="text-xl font-bold">{isAdminRole(user?.role) ? 'Admin Panel' : 'Student Panel'}</h2>}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="hover:bg-gray-700 p-2 rounded-lg transition-colors" aria-label="Toggle sidebar">
             <Menu className="w-6 h-6" />
           </button>
         </div>
         <nav className="mt-8">
-          {user?.role === 'admin' ? (
+          {isAdminRole(user?.role) ? (
             // Admin menu items
             [
               { icon: BarChart3, label: 'Dashboard', view: 'dashboard' },
@@ -597,6 +634,7 @@ const SecureExamApp: React.FC = () => {
               { icon: Download, label: 'Bulk Certificates', view: 'bulk-certificates' },
               { icon: Bell, label: 'Notifications', view: 'notifications' },
               { icon: Activity, label: 'Analytics', view: 'analytics' },
+              ...(user?.role === 'super_admin' ? [{ icon: UserCog, label: 'Role Management', view: 'role-management' }] : []),
               { icon: Settings, label: 'Settings', view: 'settings' }
             ].map((item) => (
               <button
@@ -832,7 +870,15 @@ const SecureExamApp: React.FC = () => {
                         <span className="text-gray-600">Pass Rate: {exam.passRate}%</span>
                       </div>
                       <div className="flex items-center space-x-3">
-                        <button className="text-blue-600 hover:underline text-sm">View Details</button>
+                        <button 
+                          onClick={() => {
+                            setSelectedExam(exam);
+                            setShowExamDetailsModal(true);
+                          }}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          View Details
+                        </button>
                         <button className="text-green-600 hover:underline text-sm">Analytics</button>
                         <button className="text-red-600 hover:underline text-sm">Delete</button>
                       </div>
@@ -1141,6 +1187,10 @@ const SecureExamApp: React.FC = () => {
               </div>
             </div>
           )}
+
+          {currentView === 'role-management' && (
+            <RoleManagement currentUser={user} addNotification={addNotification} />
+          )}
         </div>
       </div>
 
@@ -1348,6 +1398,71 @@ const SecureExamApp: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exam Details Modal */}
+      {showExamDetailsModal && selectedExam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b">
+              <h2 className="text-2xl font-bold text-gray-800">Exam Details</h2>
+              <button
+                onClick={() => {
+                  setShowExamDetailsModal(false);
+                  setSelectedExam(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close exam details modal"
+                title="Close exam details modal"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              {/* Exam Information */}
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">{selectedExam.title}</h3>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Subject</p>
+                    <p className="text-lg font-semibold">{selectedExam.subject}</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Duration</p>
+                    <p className="text-lg font-semibold">{selectedExam.duration} minutes</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Total Questions</p>
+                    <p className="text-lg font-semibold">{selectedExam.totalQuestions || selectedExam.questions}</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600">Difficulty</p>
+                    <p className={`text-lg font-semibold ${
+                      selectedExam.difficulty === 'Easy' ? 'text-green-600' :
+                      selectedExam.difficulty === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {selectedExam.difficulty}
+                    </p>
+                  </div>
+                </div>
+                {selectedExam.description && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-600 mb-2">Description</p>
+                    <p className="text-gray-800">{selectedExam.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Exam Invite Link Component */}
+              <div className="border-t pt-6">
+                <ExamInviteLink 
+                  examId={selectedExam._id || selectedExam.id} 
+                  addNotification={addNotification}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1666,6 +1781,18 @@ const SecureExamApp: React.FC = () => {
   // Render current view
   return (
     <>
+      {currentView === 'landing' && (
+        <LandingPage
+          onLogin={() => {
+            setIsLoginMode(true);
+            setCurrentView('login');
+          }}
+          onSignup={() => {
+            setIsLoginMode(false);
+            setCurrentView('login');
+          }}
+        />
+      )}
       {currentView === 'login' && (
         <LoginView
           error={error}
@@ -1682,9 +1809,10 @@ const SecureExamApp: React.FC = () => {
           handleLogin={handleLogin}
           handleRegister={handleRegister}
           loading={loading}
+          onBackHome={() => setCurrentView('landing')}
         />
       )}
-      {user?.role === 'admin' && ['dashboard', 'exams', 'students', 'certificates', 'bulk-certificates', 'notifications', 'analytics', 'settings'].includes(currentView) && <AdminDashboard />}
+      {isAdminRole(user?.role) && ['dashboard', 'exams', 'students', 'certificates', 'bulk-certificates', 'notifications', 'analytics', 'settings', 'role-management'].includes(currentView) && <AdminDashboard />}
       {user?.role === 'student' && ['student-dashboard', 'certificates', 'settings'].includes(currentView) && (
         currentView === 'student-dashboard' ? (
           // @ts-ignore

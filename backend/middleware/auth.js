@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const UserService = require('../services/UserService');
 const { UnauthorizedError, ForbiddenError } = require('../utils/errors');
+const { hasRequiredRole } = require('../utils/roles');
 const config = require('../config/config');
 const logger = require('../config/logger');
 
@@ -48,7 +49,9 @@ const authorize = (...roles) => {
       return next(new UnauthorizedError('User not authenticated'));
     }
 
-    if (!roles.includes(req.user.role)) {
+    const isAllowed = roles.some((role) => hasRequiredRole(req.user.role, role));
+
+    if (!isAllowed) {
       return next(new ForbiddenError(`User role ${req.user.role} is not authorized to access this route`));
     }
 

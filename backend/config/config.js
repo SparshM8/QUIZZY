@@ -20,16 +20,8 @@ const envVarsSchema = Joi.object()
     RATE_LIMIT_WINDOW_MS: Joi.number().default(15 * 60 * 1000),
     RATE_LIMIT_MAX_REQUESTS: Joi.number().default(100),
     RATE_LIMIT_AUTH_MAX: Joi.number().default(5),
-    EMAIL_USER: Joi.when('NODE_ENV', {
-      is: 'test',
-      then: Joi.string().default('ci@example.com'),
-      otherwise: Joi.string().required()
-    }).description('Email service user'),
-    EMAIL_PASSWORD: Joi.when('NODE_ENV', {
-      is: 'test',
-      then: Joi.string().default('dummy-password'),
-      otherwise: Joi.string().required()
-    }).description('Email service password')
+    EMAIL_USER: Joi.string().default('noreply@quizzy.local').description('Email service user'),
+    EMAIL_PASSWORD: Joi.string().default('dummy-password').description('Email service password')
   })
   .unknown();
 

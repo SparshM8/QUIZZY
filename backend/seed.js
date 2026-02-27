@@ -11,12 +11,27 @@ const seedDatabase = async () => {
     console.log('✅ Database schema synced');
 
     const admin = await User.create({
-      name: 'System Administrator',
+      name: 'System Super Admin',
       email: 'admin@quizzy.com',
+      password: 'admin123',
+      role: 'super_admin'
+    });
+    console.log('✅ Created super admin user');
+
+    await User.create({
+      name: 'Platform Admin',
+      email: 'ops@quizzy.com',
       password: 'admin123',
       role: 'admin'
     });
-    console.log('✅ Created admin user');
+
+    await User.create({
+      name: 'Program Manager',
+      email: 'manager@quizzy.com',
+      password: 'manager123',
+      role: 'manager'
+    });
+    console.log('✅ Created admin and manager users');
 
     const students = await Promise.all([
       User.create({
@@ -240,7 +255,9 @@ const seedDatabase = async () => {
 
     console.log('\n🎉 Database seeded successfully!');
     console.log('\n📋 Sample Login Credentials:');
-    console.log('Admin: admin@quizzy.com / admin123');
+    console.log('Super Admin: admin@quizzy.com / admin123');
+    console.log('Admin: ops@quizzy.com / admin123');
+    console.log('Manager: manager@quizzy.com / manager123');
     console.log('Students: [name]@student.com / student123');
     console.log('  - john@student.com');
     console.log('  - jane@student.com');
