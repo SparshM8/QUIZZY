@@ -1,0 +1,21 @@
+{
+  "include": [
+    "backend"
+  ],
+  "exclude": [
+    "node_modules",
+    "frontend/node_modules",
+    "__pycache__",
+    ".git"
+  ],
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "pythonPlatform": "Windows",
+  "venvPath": "",
+  "venv": "",
+  "extraPaths": [
+    "C:\\Users\\callm\\AppData\\Roaming\\Python\\Python313\\site-packages"
+  ]
+}
