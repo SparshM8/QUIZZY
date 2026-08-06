@@ -95,6 +95,7 @@ export function RegisterPage() {
               <option value="student">Student</option>
               <option value="teacher">Teacher</option>
               <option value="admin">Administrator</option>
+              <option value="recruiter">Recruiter</option>
             </select>
           </div>
           {error && (

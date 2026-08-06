@@ -19,6 +19,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <a href="/tests" className="hover:text-indigo-600">Tests</a>
               <a href="/questions" className="hover:text-indigo-600">Questions</a>
               <a href="/assignments" className="hover:text-indigo-600">Assignments</a>
+              {session?.user.role === "recruiter" || session?.user.role === "admin" ? (
+                <a href="/recruitment" className="hover:text-indigo-600">Recruitment</a>
+              ) : (
+                <a href="/applications" className="hover:text-indigo-600">Applications</a>
+              )}
               <a href="/notifications" className="hover:text-indigo-600">Notifications</a>
             </nav>
             <span className="text-sm text-slate-600">{session?.user.name}</span>
