@@ -11,6 +11,8 @@ import NotificationsPage from "./pages/NotificationsPage";
 import CodeQuestionPage from "./pages/CodeQuestionPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import AssignmentDetailPage from "./pages/AssignmentDetailPage";
+import RecruitmentPage from "./pages/RecruitmentPage";
+import CandidateApplicationsPage from "./pages/CandidateApplicationsPage";
 import { useAuth } from "./context/auth";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -115,6 +117,26 @@ export function App() {
         element={
           <ProtectedRoute>
             <AssignmentDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/recruitment"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <RecruitmentPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/applications"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CandidateApplicationsPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
