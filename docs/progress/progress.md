@@ -1,19 +1,19 @@
 # Progress Tracking
 
-**Status:** APPROVED (Part 0)
-**Last updated:** 2026-08-16
+**Status:** IN DEVELOPMENT (Phase 6 recruitment slice)
+**Last updated:** 2026-08-11
 
 ## Phase Status
 
 | Phase | Name | Status | Notes |
 |---|---|---|---|
-| 0 | Project Foundation | **COMPLETE** (2026-08-16) | Charter, ADRs 000–004, architecture overview, requirements overview, security foundations, testing strategy, workflows; legacy code archived to `legacy/` |
-| 1 | System Foundation | NOT STARTED | Backend/frontend skeleton, database, auth, RBAC |
-| 2 | Question Engine | NOT STARTED | Question bank, types, tagging |
-| 3 | Quiz / Test Engine | NOT STARTED | Test creation, delivery, results |
-| 4 | Coding Platform | NOT STARTED | Judge, sandboxing, contests |
-| 5 | Assignments & Projects | NOT STARTED | Submissions, rubrics, grading |
-| 6 | Recruitment Platform | NOT STARTED | Organizations, campaigns, shortlisting |
+| 0 | Project Foundation | **COMPLETE** | Charter, ADRs 000–004, architecture overview, requirements overview, security foundations, testing strategy, workflows; legacy code archived to `legacy/` |
+| 1 | System Foundation | **COMPLETE** | Backend/frontend skeleton, database, auth, RBAC |
+| 2 | Question Engine | **COMPLETE** | Question bank, types, tagging, moderation |
+| 3 | Quiz / Test Engine | **COMPLETE** | Test creation, delivery, results, notifications |
+| 4 | Coding Platform | **COMPLETE** | Judge queue, local worker scaffold, coding submissions |
+| 5 | Assignments & Projects | **COMPLETE** | Submissions, rubrics, grading, uploads |
+| 6 | Recruitment Platform | **IN PROGRESS** | Organizations, campaigns, invitations, candidate applications, ranking and shortlisting |
 | 7 | Analytics & Advanced Features | NOT STARTED | Leaderboards, proctoring, certificates, email |
 | 8 | Scale & Production Hardening | NOT STARTED | Performance, CI/CD, deployment, DR |
 
@@ -37,4 +37,4 @@
 
 ## Next Step
 
-Phase 1 — System Foundation plan pending product-owner kickoff approval.
+Complete assessment-linked recruitment campaigns, recruiter analytics, and production email delivery in Phase 7.
