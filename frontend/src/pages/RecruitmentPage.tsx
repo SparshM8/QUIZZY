@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import { useAuth } from "../context/auth";
 
@@ -19,7 +19,7 @@ export default function RecruitmentPage() {
   const [emails, setEmails] = useState("");
   const [message, setMessage] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     const [orgs, campaignList] = await Promise.all([
       api.get<{ data: Organization[] }>("/api/recruitment/organizations"),
       api.get<{ data: Campaign[] }>("/api/recruitment/campaigns"),
@@ -30,8 +30,8 @@ export default function RecruitmentPage() {
       const result = await api.get<{ data: RankingRow[] }>(`/api/recruitment/campaigns/${selectedCampaign.id}/ranking`);
       setRanking(result.data);
     }
-  }
-  useEffect(() => { load().catch((err) => setMessage(err instanceof Error ? err.message : "Unable to load recruitment workspace")); }, [selectedCampaign]);
+  }, [selectedCampaign]);
+  useEffect(() => { load().catch((err) => setMessage(err instanceof Error ? err.message : "Unable to load recruitment workspace")); }, [load]);
 
   async function createOrganization(event: FormEvent) {
     event.preventDefault();
