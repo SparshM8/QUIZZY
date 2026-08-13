@@ -17,6 +17,7 @@ import { notificationsRouter } from "./routes/notifications";
 import { codingRouter } from "./routes/coding";
 import { assignmentsRouter } from "./routes/assignments";
 import { recruitmentRouter } from "./routes/recruitment";
+import { analyticsRouter } from "./routes/analytics";
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/notifications", globalLimiter, notificationsRouter);
 app.use("/api/coding", globalLimiter, codingRouter);
 app.use("/api/assignments", globalLimiter, assignmentsRouter);
 app.use("/api/recruitment", globalLimiter, recruitmentRouter);
+app.use("/api/analytics", globalLimiter, analyticsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
