@@ -13,6 +13,7 @@ import AssignmentsPage from "./pages/AssignmentsPage";
 import AssignmentDetailPage from "./pages/AssignmentDetailPage";
 import RecruitmentPage from "./pages/RecruitmentPage";
 import CandidateApplicationsPage from "./pages/CandidateApplicationsPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import { useAuth } from "./context/auth";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -126,6 +127,16 @@ export function App() {
           <ProtectedRoute>
             <Layout>
               <RecruitmentPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <AnalyticsPage />
             </Layout>
           </ProtectedRoute>
         }
