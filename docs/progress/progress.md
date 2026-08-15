@@ -1,7 +1,7 @@
 # Progress Tracking
 
-**Status:** IN DEVELOPMENT (Phase 6 recruitment slice)
-**Last updated:** 2026-08-11
+**Status:** IN DEVELOPMENT (Phase 7 analytics slice)
+**Last updated:** 2026-08-15
 
 ## Phase Status
 
@@ -13,8 +13,8 @@
 | 3 | Quiz / Test Engine | **COMPLETE** | Test creation, delivery, results, notifications |
 | 4 | Coding Platform | **COMPLETE** | Judge queue, local worker scaffold, coding submissions |
 | 5 | Assignments & Projects | **COMPLETE** | Submissions, rubrics, grading, uploads |
-| 6 | Recruitment Platform | **IN PROGRESS** | Organizations, campaigns, invitations, candidate applications, ranking and shortlisting |
-| 7 | Analytics & Advanced Features | NOT STARTED | Leaderboards, proctoring, certificates, email |
+| 6 | Recruitment Platform | **COMPLETE** | Organizations, campaigns, invitations, candidate applications, ranking and shortlisting |
+| 7 | Analytics & Advanced Features | **IN PROGRESS** | Assessment overview metrics, score distribution, learner leaderboards, recruiter campaign funnel insights |
 | 8 | Scale & Production Hardening | NOT STARTED | Performance, CI/CD, deployment, DR |
 
 ## Decision Log (DECIDED items, Part 0)
@@ -37,4 +37,4 @@
 
 ## Next Step
 
-Complete assessment-linked recruitment campaigns, recruiter analytics, and production email delivery in Phase 7.
+Extend Phase 7 with assessment-linked recruitment campaigns, certificates, proctoring signals, and production email delivery.
