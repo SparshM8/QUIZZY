@@ -1,5 +1,4 @@
 import request from "supertest";
-import mongoose from "mongoose";
 import { app } from "./setup";
 import { setupDatabase, teardownDatabase, clearDatabase } from "../fixtures/db";
 

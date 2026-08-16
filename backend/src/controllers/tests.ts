@@ -105,7 +105,6 @@ export const listTests = async (req: Request, res: Response, next: NextFunction)
 
 export const getTest = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const authReq = req as unknown as AuthenticatedRequest;
     const test = await Test.findById(req.params.id).populate("createdBy", "name email role");
     if (!test) throw new AppError(404, "NOT_FOUND", "Test not found");
     res.json({ success: true, data: toSafeObject(test) });

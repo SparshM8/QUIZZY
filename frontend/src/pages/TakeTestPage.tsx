@@ -21,6 +21,7 @@ export default function TakeTestPage() {
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const answersRef = useRef<Record<string, unknown>>({});
   const [remainingMs, setRemainingMs] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +41,10 @@ export default function TakeTestPage() {
       navigate("/tests");
     }
   }, [testId, navigate]);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   useEffect(() => {
     if (!attemptId) return;
@@ -75,10 +80,10 @@ export default function TakeTestPage() {
     }, 15000);
 
     autosaveTimer.current = setInterval(async () => {
-      if (!attemptId || Object.keys(answers).length === 0) return;
+      if (!attemptId || Object.keys(answersRef.current).length === 0) return;
       try {
         await api.patch(`/api/tests/attempts/${attemptId}/answers`, {
-          answers: Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer })),
+          answers: Object.entries(answersRef.current).map(([questionId, answer]) => ({ questionId, answer })),
         });
       } catch {
         // autosave is best-effort
@@ -89,7 +94,7 @@ export default function TakeTestPage() {
       if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
       if (autosaveTimer.current) clearInterval(autosaveTimer.current);
     };
-  }, [attemptId]);
+  }, [attemptId, navigate, testId]);
 
   useEffect(() => {
     const t = setInterval(() => {
