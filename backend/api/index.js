@@ -9,7 +9,17 @@ const serverModule = require("../dist/server");
 // The Vercel bundler may re-shape the compiled module (named export, default
 // export, or the app instance returned directly), so resolve the Express app
 // from whichever shape is present.
-const app = serverModule.app || (serverModule.default && (serverModule.default.app || serverModule.default)) || serverModule;
+let app = serverModule.app || (serverModule.default && (serverModule.default.app || serverModule.default)) || serverModule;
+if (typeof app !== "function") {
+  console.error(
+    "Serverless adapter diagnostics",
+    {
+      moduleKeys: Object.keys(serverModule || {}),
+      defaultType: typeof (serverModule && serverModule.default),
+      defaultKeys: serverModule && serverModule.default ? Object.keys(serverModule.default) : [],
+    }
+  );
+}
 const databaseModule = require("../dist/config/database");
 const connectDatabase = databaseModule.connectDatabase || (databaseModule.default && databaseModule.default.connectDatabase);
 const envModule = require("../dist/config/env");
