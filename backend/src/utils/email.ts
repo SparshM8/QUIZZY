@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { Resend } from "resend";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
 
@@ -87,8 +88,6 @@ export async function sendVerificationEmail(name: string, email: string, token: 
     return false;
   }
   try {
-    // Dynamic import keeps the app booting even when Resend is unavailable.
-    const { Resend } = await import("resend");
     const resend = new Resend(env.resendApiKey);
     await resend.emails.send({
       from: env.emailFromAddress,
