@@ -5,9 +5,15 @@
 // MongoDB connection is established lazily on the first request so cold
 // starts remain fast while subsequent requests reuse the connection.
 
-const { app } = require("../dist/server");
-const { connectDatabase } = require("../dist/config/database");
-const { validateProductionConfig } = require("../dist/config/env");
+const serverModule = require("../dist/server");
+// The Vercel bundler may re-shape the compiled module (named export, default
+// export, or the app instance returned directly), so resolve the Express app
+// from whichever shape is present.
+const app = serverModule.app || (serverModule.default && (serverModule.default.app || serverModule.default)) || serverModule;
+const databaseModule = require("../dist/config/database");
+const connectDatabase = databaseModule.connectDatabase || (databaseModule.default && databaseModule.default.connectDatabase);
+const envModule = require("../dist/config/env");
+const validateProductionConfig = envModule.validateProductionConfig || (envModule.default && envModule.default.validateProductionConfig);
 
 // Respond with a plain JSON body without relying on the Express `res`
 // decorators, which are only attached after `app(req, res)` has been called.
