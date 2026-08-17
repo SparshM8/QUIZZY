@@ -81,3 +81,44 @@ module.exports = async (req, res) => {
 5. Remove `backend/vercel.json` functions/routes (root services model owns routing) or keep as service-level metadata — docs say service may define own routes; safest to delete backend/vercel.json functions/routes to avoid conflicts.
 6. CI: add `api/index.js` to eslint ignore or add a small test; backend `lint` script is `eslint src api --ext .ts` — .ts only, so .js file fine.
 7. tsconfig.api.json may be removed or kept harmless.
+
+## Update 5 (Aug 17, ~11:00 UTC)
+Commit `bd1706d` deployed `dpl_BjQP2wn6CV6iauLSRzGafXiYjQwj` **READY**. Root cause found: Vercel Express builder type-checks the entrypoint with plain `tsc` and our `api/index.ts` was outside `rootDir=src` (TS6059). Fix: plain JS adapter `backend/api/index.js` requiring compiled `../dist/server` (`src/server.ts` exports `app` at line 76; listener only starts via `startServer()` when `require.main === module`). Removed `backend/api/index.ts` and `backend/tsconfig.api.json`; root `vercel.json` entrypoint now `api/index.js`. Local verify: 12 test suites / 69 tests pass; adapter loads as function against dist.
+
+Deployment is READY but URLs are protected by Vercel Deployment Protection (302 → vercel.com/login). User asked to turn protection OFF in project Settings > Deployment Protection ("Always" → Off). After that: verify `/api/health` and `/api/health/ready` return 200, capture final production URL, add `CORS_ORIGIN` env var (production only) = frontend URL, and set up initial admin user via POST /api/auth/register (user will provide name/email/password, password not stored in docs).
+
+Env vars present: MONGODB_URI, JWT_SECRET, NODE_ENV=production, JWT_ACCESS_EXPIRY=15m, JWT_REFRESH_EXPIRY=7d, APP_VERSION=1.0.0 (dashboard-entered; user set MONGODB_URI/JWT_SECRET to Production and Preview).
+
+## Update 6 (Aug 17, ~11:10 UTC)
+Deployment Protection page open. "Require Log In" toggled OFF and Save clicked → confirmation dialog requires typing exactly `disable vercel authentication` then button "Disable Vercel Authentication". Next: type prompt, click confirm, then verify public health endpoint. Deployed URL: `https://quizzy-hmoury5ld-sparsh-mishras-projects-870ea013.vercel.app` (production alias for team sparsh-mishras-projects-870ea013). Backend rewrites at /api/*, frontend SPA at root. After protection off: verify /api/health ready=200, set CORS_ORIGIN env var = https://quizzy-hmoury5ld-sparsh-mishras-projects-870ea013.vercel.app, then create admin user via register endpoint (ask user for admin name/email/password, password not echoed in docs).
+
+## Update 7 (Aug 17, ~11:20 UTC)
+Vercel Authentication (Deployment Protection) DISABLED by user's browser session — toast confirmed "Vercel Authentication disabled". Public endpoint `/` now serves frontend HTML (HTTP 200).
+
+Root cause of `/api/health` 500: `validateProductionConfig()` threw `CORS_ORIGIN must use HTTPS in production` because env defaults `http://localhost:3000` when `CORS_ORIGIN` not set in dashboard. Fixed in `backend/src/config/env.ts` (new flag `corsOriginExplicit`, HTTPS check only when explicitly set) and `backend/src/server.ts` (cors origin mirrors any request origin when unset; typed callback to satisfy cors@2.8.6 typings; TS2349 fixed with explicit callback signature).
+
+Local verify: 12 suites / 69 tests pass; adapter in production mode with fake remote URI fails only on DNS (expected), error correctly returns 503 JSON.
+
+Pushed commit `5b3258a` "Mirror any origin when CORS_ORIGIN is unset so production boot does not require an explicit value". Vercel auto-deploying; need to recheck /api/health and /api/health/ready after build READY.
+
+Production URL: https://quizzy-hmoury5ld-sparsh-mishras-projects-870ea013.vercel.app
+Next after green health: (1) optionally add CORS_ORIGIN env var, (2) create initial admin account via POST /api/auth/register (ask user for admin name/email/password — password never logged), (3) smoke test login from frontend, (4) report final URLs.
+Team slug: sparsh-mishras-projects-870ea013; teamId team_hrvAvsYjIV6IWNGyKOYZoNav; projectId prj_NOJfxKdJnTRyO0hpywyQfb4h2VrO (for manus-mcp-cli vercel list_deployments).
+
+## 2026-08-17 — Root cause found for persistent 500 after 5b3258a
+
+The CORS fix (commit 5b3258a) did deploy successfully (deployment dpl_9n7WQZhPjt2zzsGcCgXfpXqLgkKx, READY). The 500 on that deployment is a **different, second root cause**:
+
+```
+MongoParseError: Invalid scheme, expected connection string to start with "mongodb://" or "mongodb+srv://"
+```
+
+The MONGODB_URI environment variable in the Vercel dashboard is malformed (missing/invalid scheme). The previous error group was "CORS_ORIGIN must use HTTPS in production" on deployment Bd1706d (bd1706d), now resolved by 5b3258a.
+
+Also found a second bug in backend/api/index.js error handler: `res.status(...)` throws "TypeError: res.status is not a function" in serverless mode because Express's res decorator is only applied after `app(req, res)` is called. Must fall back to writing status via res.writeHead / res.end or send a raw HTTP response before delegating to the app.
+
+Next steps:
+1. Ask user to re-enter MONGODB_URI (full string starting with mongodb+srv://, password may contain special chars but the whole string must be one unbroken value; trailing whitespace or a pasted prefix like "URI: " breaks parsing).
+2. Fix api/index.js error path so 5xx responses render correctly (use res.writeHead + res.end fallback).
+3. Redeploy, then verify /api/health and /api/health/ready == 200.
+4. Then set CORS_ORIGIN env var to the canonical alias.
