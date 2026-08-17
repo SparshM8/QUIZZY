@@ -1,6 +1,6 @@
 # QUIZZY Deployment Preparation
 
-QUIZZY is prepared as a two-service application: the Express/Mongoose API runs in `backend/`, while the Vite-built React single-page application is served by Nginx from `frontend/`. MongoDB is a separate stateful service. The included Docker Compose file is suitable for local staging and can be adapted to a managed container platform.
+QUIZZY is prepared as a two-project cloud application: the Express/Mongoose API runs as a Vercel Node.js serverless function from `backend/`, while the Vite-built React single-page application is deployed as a Vercel static project from `frontend/`. MongoDB is a separate stateful service hosted by MongoDB Atlas. The included Docker Compose file remains available for local staging.
 
 ## Required production configuration
 
@@ -19,17 +19,17 @@ The `/api/health` endpoint is the liveness check, while `/api/health/ready` is t
 
 ## Recommended no-cost cloud deployment
 
-For a device-independent personal deployment, use the included `render.yaml` Blueprint with a Render Free web service for the API, a Render Free static site for the frontend, and a MongoDB Atlas Free Cluster for MongoDB. This route requires no always-on computer, but Render Free web services sleep after inactivity and may take about a minute to wake. MongoDB Atlas Free Clusters have limited storage and no managed backups, so this setup is appropriate for a personal demo or learning deployment rather than a business-critical production service.
+For a device-independent personal deployment, use **Vercel Hobby for the API and frontend together with a MongoDB Atlas Free Cluster**. The backend has a dedicated `backend/api/index.ts` serverless adapter and `backend/vercel.json`; the frontend has `frontend/vercel.json` for Vite builds and SPA route fallback. This route does not require an always-on computer. Vercel Hobby serverless functions are subject to execution, bandwidth, and request-size limits, while MongoDB Atlas Free Clusters have limited storage and no managed backups, so this setup is appropriate for a personal demo or learning deployment rather than a business-critical service.
 
-1. Create a MongoDB Atlas Free Cluster and database user. Copy its `mongodb+srv://` connection string.
-2. In Render, choose **New → Blueprint**, connect the `SparshM8/QUIZZY` GitHub repository, and select the `render.yaml` file.
-3. When prompted, enter `MONGODB_URI` and a generated `JWT_SECRET` in Render's dashboard. Do not commit either value.
-4. Deploy `quizzy-api` first and copy its public HTTPS URL.
-5. Set the frontend service's `VITE_API_URL` to that API URL, then deploy `quizzy-frontend`.
-6. Update the API service's `CORS_ORIGIN` to the final frontend HTTPS URL and redeploy the API.
-7. Verify both `https://<api-host>/api/health` and `https://<api-host>/api/health/ready` before creating the first admin account.
+1. Create a MongoDB Atlas Free Cluster and database user. Copy its `mongodb+srv://` connection string, but do not commit or send it through chat.
+2. In Vercel, import `SparshM8/QUIZZY` as a project with the **Root Directory** set to `backend`. Keep the `main` branch and `backend/vercel.json` as the deployment configuration.
+3. Add these backend environment variables in the Vercel project dashboard: `NODE_ENV=production`, `MONGODB_URI`, `JWT_SECRET`, `JWT_ACCESS_EXPIRY=15m`, `JWT_REFRESH_EXPIRY=7d`, `CORS_ORIGIN=https://<frontend-project>.vercel.app`, and `APP_VERSION=1.0.0`.
+4. Deploy the backend and verify `https://<backend-project>.vercel.app/api/health` and `https://<backend-project>.vercel.app/api/health/ready`.
+5. Create a second Vercel project from the same repository with **Root Directory** set to `frontend`. Add `VITE_API_URL=https://<backend-project>.vercel.app` and deploy it.
+6. Copy the final frontend URL into the backend project's `CORS_ORIGIN` variable, redeploy the backend, and verify that browser requests succeed.
+7. Create the first admin account only after both health endpoints are healthy and the frontend can complete a login flow.
 
-The repository's `render.yaml` intentionally marks secrets and `VITE_API_URL` as dashboard-entered values because service hostnames are assigned by Render and credentials must never be stored in Git.
+The Vercel project settings deliberately keep `MONGODB_URI`, `JWT_SECRET`, and `CORS_ORIGIN` in the dashboard. The Render Blueprint is retained only as a container-platform reference; the current Render Hobby workspace does not accept a `free` web-service plan.
 
 ## Container smoke test
 
@@ -39,4 +39,4 @@ Set a secret in the shell and start the stack with `docker compose up --build`. 
 
 GitHub Actions now uses the committed `package-lock.json` files with `npm ci`, points integration tests at `TEST_MONGO_URI`, cancels obsolete concurrent runs, and executes backend type-checking, linting, tests, frontend type-checking, linting, and production build. The workflow does not store deployment secrets and is safe to run for pull requests.
 
-For a hosted deployment, create the MongoDB database first, configure the API environment variables in the hosting provider, deploy the backend, and then deploy the frontend with `VITE_API_URL` pointing to the backend URL. The free deployment research and source links are recorded in `docs/free-deployment-research.md`. The release candidate currently reports zero production dependency vulnerabilities through `npm audit --omit=dev --audit-level=high`. Do not commit `.env` files or production credentials.
+For a hosted deployment, create the MongoDB database first, configure the API environment variables in Vercel, deploy the backend project, and then deploy the frontend project with `VITE_API_URL` pointing to the backend URL. The free deployment research and source links are recorded in `docs/free-deployment-research.md`. The release candidate reports zero production dependency vulnerabilities through `npm audit --omit=dev --audit-level=high`. Do not commit `.env` files or production credentials.
