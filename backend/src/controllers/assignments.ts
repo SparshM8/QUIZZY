@@ -8,8 +8,19 @@ import { AppError } from "../middleware/errorHandler";
 import { toSafeObject } from "../utils/sanitize";
 import type { AuthenticatedRequest } from "../middleware/auth";
 
+// Serverless filesystems (Vercel) are read-only at process.cwd() (/var/task).
+// Fall back to the writable /tmp volume there while keeping "uploads" locally.
+const isReadOnlyFs = (() => {
+  try {
+    return (process.cwd() || "").startsWith("/var/task");
+  } catch {
+    return true;
+  }
+})();
+const UPLOADS_DIR = isReadOnlyFs ? path.join("/tmp", "uploads") : path.resolve(process.cwd(), "uploads");
+
 export const storage = diskStorage({
-  destination: path.resolve(process.cwd(), "uploads"),
+  destination: UPLOADS_DIR,
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname || ".dat").toLowerCase();
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
