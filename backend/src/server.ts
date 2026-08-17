@@ -1,4 +1,8 @@
-import express from "express";
+// Namespace import is used deliberately: the Vercel function bundler
+// rewrites the compiled `__importDefault` helper in a way that leaves the
+// default export of CommonJS packages like `express` undefined, which made
+// `express()` return undefined in serverless execution. Importing the
+// namespace keeps `expressNs.default` resolvable at runtime.
 import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
@@ -19,7 +23,14 @@ import { assignmentsRouter } from "./routes/assignments";
 import { recruitmentRouter } from "./routes/recruitment";
 import { analyticsRouter } from "./routes/analytics";
 
-const app = express();
+// Namespace import is used deliberately: the Vercel function bundler
+// rewrites the compiled `__importDefault` helper in a way that leaves the
+// default export of CommonJS packages like `express` undefined, which made
+// `express()` return undefined in serverless execution. Importing the
+// namespace keeps `expressNs.default` resolvable at runtime.
+import * as expressNs from "express";
+const expressFn = ((expressNs as unknown as { default?: unknown }).default || expressNs) as unknown as () => expressNs.Express;
+const app = expressFn();
 
 app.use(helmet());
 app.use(
@@ -35,8 +46,12 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
+const expressMiddleware = expressFn as unknown as {
+  json(options?: { limit?: string }): expressNs.RequestHandler;
+  urlencoded(options?: { extended?: boolean }): expressNs.RequestHandler;
+};
+app.use(expressMiddleware.json({ limit: "1mb" }));
+app.use(expressMiddleware.urlencoded({ extended: true }));
 app.use(morgan("combined", { stream: { write: (line) => logger.info(line.trim()) } }));
 
 const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });
