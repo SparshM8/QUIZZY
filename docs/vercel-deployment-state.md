@@ -122,3 +122,26 @@ Next steps:
 2. Fix api/index.js error path so 5xx responses render correctly (use res.writeHead + res.end fallback).
 3. Redeploy, then verify /api/health and /api/health/ready == 200.
 4. Then set CORS_ORIGIN env var to the canonical alias.
+
+## 2026-08-17 — RESOLVED: production fully live
+
+All blockers resolved in sequence during debugging. Summary of root causes and fixes (earlier updates detail the chain):
+
+| # | Root cause | Fix |
+|---|---|---|
+| 1 | `validateProductionConfig()` HTTPS check on default `CORS_ORIGIN` | Commit `5b3258a`: check only when `CORS_ORIGIN` explicitly set; permissive CORS callback |
+| 2 | MONGODB_URI malformed (bad scheme) in dashboard | User re-entered the full `mongodb+srv://` connection string |
+| 3 | Atlas IP whitelist blocked Vercel IPs | User added `0.0.0.0/0` in Atlas Network Access |
+| 4 | Serverless `res.status` TypeError in error path | `backend/api/index.js` rewritten with raw HTTP fallback (service unavailable JSON) |
+| 5 | Stale build cache restored old `dist/server.js`; Express default import mangled by bundler | `backend/src/server.ts`: namespace imports for express/morgan; `npm run build` = `rm -rf dist && tsc`; committed esbuild bundle as entrypoint |
+| 6 | Multi-service beta ignored per-service build configs / entrypoint validation pre-build | Entrypoint = committed `backend/api/entry.cjs` (built by esbuild inside `npm run build`, kept in git); backend service `framework: express` with entrypoint override |
+| 7 | `OverwriteModelError: Cannot overwrite User model once compiled` (module re-init in warm container) | Safe-model helper across all 9 model files (`mongoose.models[name] || mongoose.model(...)`), commit `e7249e6` |
+| 8 | `EROFS: read-only file system` on `uploads/` mkdir at startup | Commit `d842338`: `/tmp/uploads` when cwd is read-only |
+
+Final verification (canonical alias `https://quizzy-git-main-sparsh-mishras-projects-870ea013.vercel.app`): `GET /` → 200; `/api/health` → 200 `{"status":"ok"}`; `/api/health/ready` → 200 `{"status":"ready","mongodb":"up"}`; CORS preflight to `/api/auth/login` → 204 with `access-control-allow-origin` = production URL and credentials.
+
+Env vars: `CORS_ORIGIN` set to the canonical frontend URL (Production + Preview, sensitive) and Production redeployed.
+
+Admin account: user (Sparsh Mishra) self-registered as **Administrator** with email `callme8samay@gmail.com` via the production signup page (role dropdown on the Register form; password never shared).
+
+Latest deployments: `quizzy-al22s0nmp…` and `quizzy-rjqpfezql…` (both READY, commit `d842338`, production).
