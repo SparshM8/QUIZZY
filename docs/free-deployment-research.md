@@ -14,3 +14,12 @@ Use Render free services for the Node/Express backend and the React static front
 ## Decision
 
 Proceed with Render for the frontend and backend plus MongoDB Atlas Free Cluster. The user must create/authorize the accounts and enter secrets in provider dashboards; secrets should not be sent in chat or committed to GitHub.
+
+
+## Dashboard verification on August 17, 2026
+
+The authenticated Render Blueprint flow rejected the API service declaration with `services[1].plan: no such plan free for service type web` in the Hobby workspace, so Render cannot provide the required no-cost backend service for this deployment.
+
+The authenticated Vercel New Project flow recognized `SparshM8/QUIZZY` and detected two services: `frontend` at the repository `frontend` root using Vite, and `backend` at the `backend` root using Express with the `/api` function directory. Vercel displayed a multi-service configuration with `/api(/.*)?` rewrites to the backend service and all other paths routed to the frontend service. The dashboard indicated that a root `vercel.json` is required for this multi-service deployment. Official references: https://vercel.com/docs/plans/hobby, https://vercel.com/docs/functions/limitations, and https://render.com/docs/free.
+
+These findings confirm that a single Vercel project with two services is the preferred no-cost architecture, provided the repository includes the dashboard-generated root service configuration and dashboard-entered secrets remain outside Git.
