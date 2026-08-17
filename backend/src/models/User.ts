@@ -5,7 +5,7 @@ import { ROLES } from "../types/shared";
 // Plain mongoose.model / mongoose.models members are used (no .bind() at
 // module load) because some serverless bundler/runtime combinations crash
 // on top-level .bind() invocations.
-function safeModel<T>(name: string, schema: mongoose.Schema<T>): mongoose.Model<T> {
+function safeModel<T>(name: string, schema: Schema<T>): mongoose.Model<T> {
   if (mongoose.models[name]) return mongoose.models[name];
   return mongoose.model<T>(name, schema);
 }

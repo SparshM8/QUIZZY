@@ -1,7 +1,7 @@
-import mongoose, { Document, Schema } from "mongoose";
+import mongoose, { Document, Schema, Types } from "mongoose";
 // Idempotent model registration so the serverless entrypoint can be
 // re-initialized by the runtime without "Cannot overwrite model" errors.
-function safeModel<T>(name: string, schema: mongoose.Schema<T>): mongoose.Model<T> {
+function safeModel<T>(name: string, schema: Schema<T>): mongoose.Model<T> {
   if (mongoose.models[name]) return mongoose.models[name];
   return mongoose.model<T>(name, schema);
 }
@@ -58,7 +58,7 @@ export interface QuestionBody {
   numerical?: NumericalOptions;
   coding?: CodingOptions;
   explanation?: string;
-  createdBy: mongoose.Types.ObjectId;
+  createdBy: Types.ObjectId;
   status: ModerationStatus;
   moderatorComment?: string;
 }
