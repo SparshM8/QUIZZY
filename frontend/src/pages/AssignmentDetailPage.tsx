@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api } from "../api/client";
+import { api, apiBaseUrl } from "../api/client";
 import { useAuth } from "../context/auth";
 import { Layout } from "../components/Layout";
 
@@ -49,7 +49,7 @@ export default function AssignmentDetailPage() {
     formData.append("file", file);
     try {
       const token = localStorage.getItem("quizzy.accessToken");
-      const res = await fetch(`/api/assignments/${assignmentId}/submissions`, {
+      const res = await fetch(`${apiBaseUrl}/api/assignments/${assignmentId}/submissions`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

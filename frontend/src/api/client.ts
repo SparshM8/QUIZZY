@@ -3,8 +3,10 @@ export interface ApiError {
   error: { code: string; message: string };
 }
 
+export const apiBaseUrl = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+
 class ApiClient {
-  private baseUrl = "";
+  private baseUrl = apiBaseUrl;
 
   private async request<T>(
     path: string,
