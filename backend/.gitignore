@@ -3,4 +3,3 @@ coverage/
 .env
 uploads/
 *.log
-api/dist-bundle.cjs
