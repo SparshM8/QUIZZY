@@ -54,8 +54,19 @@ app.use(expressMiddleware.json({ limit: "1mb" }));
 app.use(expressMiddleware.urlencoded({ extended: true }));
 app.use(morgan("combined", { stream: { write: (line) => logger.info(line.trim()) } }));
 
-const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
+// Vercel proxies all traffic, so every client appears to come from the same
+// reverse-proxy IP. Trusting one proxy hop lets the middleware read the real
+// client IP from X-Forwarded-For; without this, ALL users share a single
+// rate-limit bucket and the site blocks itself under load.
+app.set("trust proxy", 1);
+const clientIpKey = (req: expressNs.Request) => {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded) return forwarded.split(",")[0].trim();
+  return req.socket?.remoteAddress ?? req.ip ?? "unknown";
+};
+
+const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, keyGenerator: clientIpKey });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, keyGenerator: clientIpKey });
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authLimiter, authRouter);
