@@ -2,11 +2,12 @@ import mongoose, { Schema, Document } from "mongoose";
 import { ROLES } from "../types/shared";
 // Idempotent model registration so the serverless entrypoint can be
 // re-initialized by the runtime without "Cannot overwrite model" errors.
-const __mongooseModel = mongoose.model.bind(mongoose);
+// Plain mongoose.model / mongoose.models members are used (no .bind() at
+// module load) because some serverless bundler/runtime combinations crash
+// on top-level .bind() invocations.
 function safeModel<T>(name: string, schema: mongoose.Schema<T>): mongoose.Model<T> {
-  const existing = (mongoose as unknown as { models: Record<string, mongoose.Model<T>> }).models[name];
-  if (existing) return existing;
-  return __mongooseModel<T>(name, schema);
+  if (mongoose.models[name]) return mongoose.models[name];
+  return mongoose.model<T>(name, schema);
 }
 
 export interface UserDocument extends Document {
@@ -48,7 +49,7 @@ const userSchema = new Schema<UserDocument>(
 );
 
 userSchema.index({ role: 1 });
-userSchema.index({ candidateId: 1 });
+// candidateId is already indexed via `index: true` on the field above.
 userSchema.set("toJSON", { virtuals: true });
 userSchema.set("toObject", { virtuals: true });
 userSchema.virtual("id").get(function () {
