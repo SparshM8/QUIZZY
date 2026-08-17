@@ -6,14 +6,8 @@
     },
     "backend": {
       "root": "backend",
-      "entrypoint": "api/dist-bundle.cjs",
-      "buildCommand": "npm run vercel:function-build",
-      "functions": {
-        "api/dist-bundle.cjs": {
-          "runtime": "nodejs22.x",
-          "maxDuration": 10
-        }
-      }
+      "framework": "express",
+      "entrypoint": "api/dist-bundle.cjs"
     }
   },
   "rewrites": [

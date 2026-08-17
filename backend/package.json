@@ -4,7 +4,7 @@
   "description": "Quizzy — assessment platform backend (Node.js, Express, TypeScript, MongoDB)",
   "main": "dist/server.js",
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "build": "rm -rf dist && tsc && esbuild api/index.js --bundle --platform=node --format=cjs --outfile=api/dist-bundle.cjs --external:mongoose --external:bcryptjs --external:bullmq --minify",
     "vercel:function-build": "npm run build && esbuild api/index.js --bundle --platform=node --format=cjs --outfile=api/dist-bundle.cjs --external:mongoose --external:bcryptjs --external:bullmq --minify",
     "typecheck": "tsc -p tsconfig.api.json",
     "start": "node dist/server.js",
