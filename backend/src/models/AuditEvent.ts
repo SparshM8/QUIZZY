@@ -1,4 +1,12 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
+// Idempotent model registration so the serverless entrypoint can be
+// re-initialized by the runtime without "Cannot overwrite model" errors.
+const __mongooseModel = mongoose.model.bind(mongoose);
+function safeModel<T>(name: string, schema: mongoose.Schema<T>): mongoose.Model<T> {
+  const existing = (mongoose as unknown as { models: Record<string, mongoose.Model<T>> }).models[name];
+  if (existing) return existing;
+  return __mongooseModel<T>(name, schema);
+}
 
 export interface AuditEventDocument extends Document {
   actor: Types.ObjectId;
@@ -22,7 +30,7 @@ const auditEventSchema = new Schema<AuditEventDocument>(
 
 auditEventSchema.index({ createdAt: 1 });
 
-export const AuditEvent = mongoose.model<AuditEventDocument>("AuditEvent", auditEventSchema);
+export const AuditEvent = safeModel<AuditEventDocument>("AuditEvent", auditEventSchema);
 
 export async function audit(
   user: { _id: Types.ObjectId },

@@ -1,4 +1,12 @@
 import mongoose, { Document, Schema } from "mongoose";
+// Idempotent model registration so the serverless entrypoint can be
+// re-initialized by the runtime without "Cannot overwrite model" errors.
+const __mongooseModel = mongoose.model.bind(mongoose);
+function safeModel<T>(name: string, schema: mongoose.Schema<T>): mongoose.Model<T> {
+  const existing = (mongoose as unknown as { models: Record<string, mongoose.Model<T>> }).models[name];
+  if (existing) return existing;
+  return __mongooseModel<T>(name, schema);
+}
 
 export type QuestionType =
   | "mcq"
@@ -140,4 +148,4 @@ questionSchema.set("toJSON", { virtuals: true });
 questionSchema.set("toObject", { virtuals: true });
 questionSchema.virtual("id").get(function () { return this._id?.toString(); });
 
-export const Question = mongoose.model<IQuestion>("Question", questionSchema);
+export const Question = safeModel<IQuestion>("Question", questionSchema);

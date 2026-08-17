@@ -1,5 +1,13 @@
 import mongoose, { Schema, Document } from "mongoose";
 import { ROLES } from "../types/shared";
+// Idempotent model registration so the serverless entrypoint can be
+// re-initialized by the runtime without "Cannot overwrite model" errors.
+const __mongooseModel = mongoose.model.bind(mongoose);
+function safeModel<T>(name: string, schema: mongoose.Schema<T>): mongoose.Model<T> {
+  const existing = (mongoose as unknown as { models: Record<string, mongoose.Model<T>> }).models[name];
+  if (existing) return existing;
+  return __mongooseModel<T>(name, schema);
+}
 
 export interface UserDocument extends Document {
   name: string;
@@ -40,4 +48,4 @@ userSchema.virtual("id").get(function () {
   return this._id?.toString();
 });
 
-export const User = mongoose.model<UserDocument>("User", userSchema);
+export const User = safeModel<UserDocument>("User", userSchema);
