@@ -1,6 +1,7 @@
 {
   "version": 2,
   "buildCommand": "npm run build",
+  "entrypoint": "api/index.ts",
   "functions": {
     "api/index.ts": {
       "runtime": "nodejs22.x",
