@@ -15,6 +15,8 @@ if (typeof app !== "function") {
     "Serverless adapter diagnostics",
     {
       moduleKeys: Object.keys(serverModule || {}),
+      appTypeof: typeof serverModule.app,
+      appProto: serverModule.app ? String(Object.getPrototypeOf(serverModule.app) || "").slice(0, 80) : null,
       defaultType: typeof (serverModule && serverModule.default),
       defaultKeys: serverModule && serverModule.default ? Object.keys(serverModule.default) : [],
     }
