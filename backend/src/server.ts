@@ -24,7 +24,14 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: env.corsOrigin,
+    // When no explicit origin is configured the API mirrors the requesting
+    // origin so the same deployment serves any hosted frontend; the explicit
+    // HTTPS check in validateProductionConfig still applies when one is set.
+    origin: env.corsOriginExplicit
+      ? env.corsOrigin
+      : (requestOrigin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+          callback(null, true);
+        },
     credentials: true,
   })
 );

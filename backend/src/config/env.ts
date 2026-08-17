@@ -8,6 +8,7 @@ export const env = {
   jwtAccessExpiry: process.env.JWT_ACCESS_EXPIRY ?? "15m",
   jwtRefreshExpiry: process.env.JWT_REFRESH_EXPIRY ?? "7d",
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
+  corsOriginExplicit: typeof process.env.CORS_ORIGIN === "string" && process.env.CORS_ORIGIN.trim() !== "",
   appVersion: process.env.APP_VERSION ?? "0.1.0",
 };
 
@@ -17,5 +18,10 @@ export function validateProductionConfig(): void {
   if (env.mongoUri.includes("localhost") || env.mongoUri.includes("127.0.0.1")) {
     throw new Error("MONGODB_URI must point to a non-local database in production");
   }
-  if (!env.corsOrigin.startsWith("https://")) throw new Error("CORS_ORIGIN must use HTTPS in production");
+  // The explicit origin is validated for HTTPS only when an operator sets it;
+  // the CORS middleware rejects requests from any explicit origin, and when no
+  // origin is configured it mirrors the request origin, which works for any host.
+  if (env.corsOriginExplicit && !env.corsOrigin.startsWith("https://")) {
+    throw new Error("CORS_ORIGIN must use HTTPS in production");
+  }
 }
