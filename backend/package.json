@@ -4,7 +4,7 @@
   "description": "Quizzy — assessment platform backend (Node.js, Express, TypeScript, MongoDB)",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "typecheck": "tsc -p tsconfig.api.json",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
