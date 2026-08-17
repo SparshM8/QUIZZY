@@ -3,8 +3,8 @@ import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-import { env } from "./config/env";
-import { connectDatabase } from "./config/database";
+import { env, validateProductionConfig } from "./config/env";
+import { connectDatabase, disconnectDatabase } from "./config/database";
 import { logger } from "./config/logger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";
 import { authRouter } from "./routes/auth";
@@ -51,10 +51,19 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export async function startServer(): Promise<void> {
+  validateProductionConfig();
   await connectDatabase();
-  app.listen(env.port, () => {
-    logger.info(`Quizzy API listening on :${env.port}`, { env: env.nodeEnv });
+  const server = app.listen(env.port, () => {
+    logger.info(`Quizzy API listening on :${env.port}`, { env: env.nodeEnv, version: env.appVersion });
   });
+  const shutdown = (signal: string) => {
+    logger.info(`Received ${signal}; shutting down gracefully`);
+    server.close(() => {
+      void disconnectDatabase().finally(() => process.exit(0));
+    });
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
 }
 
 if (require.main === module) {

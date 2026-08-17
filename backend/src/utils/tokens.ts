@@ -1,5 +1,5 @@
+import crypto from "crypto";
 import jwt, { SignOptions } from "jsonwebtoken";
-import { v4 as uuid } from "uuid";
 import { env } from "../config/env";
 import { TokenPayload } from "../middleware/auth";
 
@@ -11,13 +11,13 @@ export interface TokenPair {
 
 export function signAccessToken(userId: string, email: string, role: string): string {
   const payload: Omit<TokenPayload, "iat" | "exp"> = { sub: userId, email, role, type: "access" };
-  const opts: SignOptions = { expiresIn: env.jwtAccessExpiry as SignOptions["expiresIn"], jwtid: uuid() };
+  const opts: SignOptions = { expiresIn: env.jwtAccessExpiry as SignOptions["expiresIn"], jwtid: crypto.randomUUID() };
   return jwt.sign(payload, env.jwtSecret, opts);
 }
 
 export function signRefreshToken(userId: string, email: string, role: string): string {
   const payload: Omit<TokenPayload, "iat" | "exp"> = { sub: userId, email, role, type: "refresh" };
-  const opts: SignOptions = { expiresIn: env.jwtRefreshExpiry as SignOptions["expiresIn"], jwtid: uuid() };
+  const opts: SignOptions = { expiresIn: env.jwtRefreshExpiry as SignOptions["expiresIn"], jwtid: crypto.randomUUID() };
   return jwt.sign(payload, env.jwtSecret, opts);
 }
 

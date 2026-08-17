@@ -8,6 +8,10 @@ export async function connectDatabase(): Promise<void> {
   logger.info("Connected to MongoDB", { uri: env.mongoUri.replace(/\/\/[^@]+@/, "//***@") });
 }
 
+export function isDatabaseReady(): boolean {
+  return mongoose.connection.readyState === 1;
+}
+
 export async function disconnectDatabase(): Promise<void> {
   await mongoose.disconnect();
   logger.info("Disconnected from MongoDB");
