@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "entrypoint": "api/index.ts",
+  "buildCommand": "npm run vercel:function-build",
+  "entrypoint": "api/dist-bundle.cjs",
   "functions": {
-    "api/index.ts": {
+    "api/dist-bundle.cjs": {
       "runtime": "nodejs22.x",
       "maxDuration": 10
     }
@@ -11,7 +11,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/api/index.ts"
+      "dest": "/api/dist-bundle.cjs"
     }
   ]
 }
