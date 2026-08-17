@@ -10,6 +10,7 @@ import {
 } from "../models/Recruitment";
 import { Notification } from "../models/Notification";
 import { AppError } from "../middleware/errorHandler";
+import { auditAction } from "../models/AuditEvent";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { toSafeObject } from "../utils/sanitize";
 
@@ -55,6 +56,7 @@ export const createCampaign = async (req: Request, res: Response, next: NextFunc
     const { organizationId, title, description = "", roleTitle, skills = [], testId, startsAt, closesAt } = req.body;
     await requireOrganization(organizationId, user.sub, user.role);
     const campaign = await RecruitmentCampaign.create({ organizationId, createdBy: user.sub, title, description, roleTitle, skills, testId, startsAt, closesAt });
+    auditAction(user.sub, "campaign.created", String(campaign._id), "recruitment_campaigns");
     res.status(201).json({ success: true, data: toSafeObject(campaign) });
   } catch (err) { next(err); }
 };
@@ -84,6 +86,7 @@ export const updateCampaign = async (req: Request, res: Response, next: NextFunc
     if (user.role !== "admin" && String(campaign.createdBy) !== user.sub) throw new AppError(403, "FORBIDDEN", "Only the campaign owner can edit it");
     Object.assign(campaign, req.body);
     await campaign.save();
+    auditAction(user.sub, "campaign.updated", String(campaign._id), "recruitment_campaigns");
     res.json({ success: true, data: toSafeObject(campaign) });
   } catch (err) { next(err); }
 };
@@ -128,6 +131,7 @@ export const acceptInvitation = async (req: Request, res: Response, next: NextFu
     invitation.candidateId = user.sub as unknown as typeof invitation.candidateId;
     invitation.status = "accepted";
     await invitation.save();
+    auditAction(user.sub, "application.accepted", String(application._id), "recruitment_applications");
     res.json({ success: true, data: toSafeObject(application) });
   } catch (err) { next(err); }
 };
@@ -161,6 +165,10 @@ export const updateApplication = async (req: Request, res: Response, next: NextF
     if (req.body.notes !== undefined) application.notes = req.body.notes;
     if (req.body.score !== undefined) application.score = Number(req.body.score);
     await application.save();
+    auditAction(user.sub, "application.updated", String(application._id), "recruitment_applications", {
+      status: application.status,
+      score: application.score,
+    });
     res.json({ success: true, data: toSafeObject(application) });
   } catch (err) { next(err); }
 };

@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { CodingSubmission } from "../models/CodingSubmission";
 import { Question } from "../models/Question";
 import { AppError } from "../middleware/errorHandler";
+import { auditAction } from "../models/AuditEvent";
 import { toSafeObject } from "../utils/sanitize";
 import { enqueueJudging } from "../judge/queue";
 import type { AuthenticatedRequest } from "../middleware/auth";
@@ -37,6 +38,8 @@ export const submitCode = async (req: Request, res: Response, next: NextFunction
       verdict: "queued",
       submittedAt: new Date(),
     });
+
+    auditAction(authReq.user!.sub, "coding.submitted", String(submission._id), "coding_submissions", { language });
 
     const testCases = (question.coding?.testCases ?? []).map((tc) => ({
       input: tc.input,

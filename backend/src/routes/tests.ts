@@ -2,6 +2,7 @@ import { Router } from "express";
 import { body } from "express-validator";
 import { validate } from "../middleware/validate";
 import { authenticate, requireRole } from "../middleware/auth";
+import { requireVerified } from "../middleware/requireVerified";
 import * as tests from "../controllers/tests";
 import * as attempts from "../controllers/attempts";
 
@@ -58,7 +59,7 @@ testsRouter.post(
   tests.enrollStudent
 );
 
-testsRouter.post("/:testId/attempts", authenticate, requireRole("student"), attempts.startAttempt);
+testsRouter.post("/:testId/attempts", authenticate, requireRole("student"), requireVerified, attempts.startAttempt);
 
 testsRouter.get("/attempts/:attemptId/state", authenticate, requireRole("student"), attempts.getAttemptState);
 
@@ -66,12 +67,13 @@ testsRouter.patch(
   "/attempts/:attemptId/answers",
   authenticate,
   requireRole("student"),
+  requireVerified,
   validate([body("answers").isArray()]),
   attempts.saveAnswers
 );
 
 testsRouter.get("/attempts/:attemptId/heartbeat", authenticate, requireRole("student"), attempts.heartbeat);
 
-testsRouter.post("/attempts/:attemptId/submit", authenticate, requireRole("student"), attempts.submitAttempt);
+testsRouter.post("/attempts/:attemptId/submit", authenticate, requireRole("student"), requireVerified, attempts.submitAttempt);
 
 testsRouter.get("/attempts/:attemptId/result", authenticate, attempts.getAttemptResult);

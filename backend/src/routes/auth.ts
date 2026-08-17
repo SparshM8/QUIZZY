@@ -8,6 +8,10 @@ import {
   refreshController,
   logoutController,
 } from "../controllers/auth";
+import {
+  verifyEmailController,
+  resendVerificationController,
+} from "../controllers/verification";
 import { validate } from "../middleware/validate";
 
 export const authRouter = Router();
@@ -34,3 +38,15 @@ authRouter.post(
 
 authRouter.post("/refresh", refreshController);
 authRouter.post("/logout", authenticate, logoutController);
+
+// Email verification — single-use, hashed, 24h-expiry tokens.
+authRouter.post(
+  "/verify-email",
+  validate([body("token").optional({ values: "undefined" }).isString().isLength({ min: 64, max: 64 })]),
+  verifyEmailController
+);
+authRouter.post(
+  "/resend-verification",
+  validate([body("email").isEmail().normalizeEmail()]),
+  resendVerificationController
+);

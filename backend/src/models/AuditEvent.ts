@@ -46,3 +46,25 @@ export async function audit(
     meta,
   });
 }
+
+/**
+ * Audit a write against an arbitrary target (test, question, application...).
+ * Never throws: a logging failure must never break the user-facing request.
+ */
+export function auditAction(
+  actorId: string,
+  action: string,
+  targetId: string,
+  targetCollection: string,
+  meta?: Record<string, unknown>
+): void {
+  void AuditEvent.create({
+    actor: new Types.ObjectId(actorId),
+    target: new Types.ObjectId(targetId),
+    targetCollection,
+    action,
+    meta,
+  }).catch((err) => {
+    console.error("auditAction create failed", err);
+  });
+}

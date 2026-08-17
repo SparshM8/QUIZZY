@@ -17,6 +17,10 @@ export interface UserDocument extends Document {
   isActive: boolean;
   avatar?: string;
   refreshToken?: string;
+  // Public tracking identifier, e.g. QUIZ-A7K2-M9P4. Visible to teachers and
+  // recruiters for reporting without exposing internal database keys.
+  candidateId?: string;
+  isEmailVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,11 +41,14 @@ const userSchema = new Schema<UserDocument>(
     isActive: { type: Boolean, default: true },
     avatar: { type: String },
     refreshToken: { type: String },
+    candidateId: { type: String, unique: true, sparse: true },
+    isEmailVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
 userSchema.index({ role: 1 });
+userSchema.index({ candidateId: 1 });
 userSchema.set("toJSON", { virtuals: true });
 userSchema.set("toObject", { virtuals: true });
 userSchema.virtual("id").get(function () {

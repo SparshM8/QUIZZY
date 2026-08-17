@@ -1,12 +1,21 @@
 import request from "supertest";
 import { app } from "./setup";
 import { setupDatabase, teardownDatabase, clearDatabase } from "../fixtures/db";
+import { User } from "../../src/models/User";
 
 const makeToken = async (role: string, suffix = Date.now()) => {
   const res = await request(app)
     .post("/api/auth/register")
     .send({ name: `${role} ${suffix}`, email: `${role}-${suffix}@example.com`, password: "Password123!", role });
   return { token: res.body.data.accessToken, user: res.body.data.user };
+};
+
+// The test users are pre-verified so the requireVerified middleware (added for
+// email-verification security) does not gate the test engine flow itself.
+const makeVerifiedToken = async (role: string, suffix = Date.now()) => {
+  const { token, user } = await makeToken(role, suffix);
+  await User.updateOne({ _id: user.id }, { isEmailVerified: true });
+  return { token, user };
 };
 
 const makeQuestion = async (token: string) => {
@@ -92,7 +101,7 @@ describe("test engine APIs", () => {
 
   it("lets enrolled students start an attempt", async () => {
     const teacher = await makeToken("teacher");
-    const student = await makeToken("student");
+    const student = await makeVerifiedToken("student");
     const qid = await makeQuestion(teacher.token);
     const created = await request(app)
       .post("/api/tests")
@@ -116,7 +125,7 @@ describe("test engine APIs", () => {
 
   it("rejects non-enrolled students from starting", async () => {
     const teacher = await makeToken("teacher");
-    const stranger = await makeToken("student", Date.now() + 1);
+    const stranger = await makeVerifiedToken("student", Date.now() + 1);
     const qid = await makeQuestion(teacher.token);
     const created = await request(app)
       .post("/api/tests")
@@ -133,7 +142,7 @@ describe("test engine APIs", () => {
 
   it("saves answers, submits, and scores objective answers", async () => {
     const teacher = await makeToken("teacher");
-    const student = await makeToken("student");
+    const student = await makeVerifiedToken("student");
     const qid = await makeQuestion(teacher.token);
     const created = await request(app)
       .post("/api/tests")

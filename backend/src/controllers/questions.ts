@@ -2,8 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { Question, type QuestionType } from "../models/Question";
 import { AppError } from "../middleware/errorHandler";
 import { toSafeObject } from "../utils/sanitize";
-import { Types } from "mongoose";
-import { AuditEvent } from "../models/AuditEvent";
+import { auditAction } from "../models/AuditEvent";
 import type { AuthenticatedRequest } from "../middleware/auth";
 
 function requireQuestionFields(body: Record<string, unknown>, type: QuestionType): void {
@@ -51,12 +50,9 @@ export const createQuestion = async (req: Request, res: Response, next: NextFunc
     status: body.status === "pending" ? "pending" : "draft",
   });
 
-  await AuditEvent.create({
-    actor: new Types.ObjectId(authReq.user!.sub),
-    action: "question.created",
-    target: question._id,
-    targetCollection: "questions",
-    meta: { type: question.type, status: question.status },
+  auditAction(authReq.user!.sub, "question.created", String(question._id), "questions", {
+    type: question.type,
+    status: question.status,
   });
 
     res.status(201).json({ success: true, data: toSafeObject(question) });
@@ -138,12 +134,7 @@ export const updateQuestion = async (req: Request, res: Response, next: NextFunc
   }
   await question.save();
 
-  await AuditEvent.create({
-    actor: new Types.ObjectId(authReq.user!.sub),
-    action: "question.updated",
-    target: question._id,
-    targetCollection: "questions",
-  });
+  auditAction(authReq.user!.sub, "question.updated", String(question._id), "questions");
 
     res.json({ success: true, data: toSafeObject(question) });
   } catch (err) {
@@ -161,12 +152,7 @@ export const deleteQuestion = async (req: Request, res: Response, next: NextFunc
   }
   await Question.deleteOne({ _id: question._id });
 
-  await AuditEvent.create({
-    actor: new Types.ObjectId(authReq.user!.sub),
-    action: "question.deleted",
-    target: question._id,
-    targetCollection: "questions",
-  });
+  auditAction(authReq.user!.sub, "question.deleted", String(question._id), "questions");
 
     res.json({ success: true });
   } catch (err) {
@@ -191,12 +177,7 @@ export const moderateQuestion = async (req: Request, res: Response, next: NextFu
   if (moderatorComment !== undefined) question.moderatorComment = moderatorComment;
   await question.save();
 
-  await AuditEvent.create({
-    actor: new Types.ObjectId(authReq.user!.sub),
-    action: `question.${status}`,
-    target: question._id,
-    targetCollection: "questions",
-  });
+  auditAction(authReq.user!.sub, `question.${status}`, String(question._id), "questions", { moderatorComment });
 
     res.json({ success: true, data: toSafeObject(question) });
   } catch (err) {

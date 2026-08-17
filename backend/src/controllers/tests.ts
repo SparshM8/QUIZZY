@@ -4,6 +4,7 @@ import { Test, type TestStatus } from "../models/Test";
 import { Notification } from "../models/Notification";
 import { User } from "../models/User";
 import { AppError } from "../middleware/errorHandler";
+import { auditAction } from "../models/AuditEvent";
 import { toSafeObject } from "../utils/sanitize";
 import type { AuthenticatedRequest } from "../middleware/auth";
 
@@ -61,6 +62,7 @@ export const publishTest = async (req: Request, res: Response, next: NextFunctio
     }
     test.status = "published" as TestStatus;
     await test.save();
+    auditAction(authReq.user!.sub, "test.published", String(test._id), "tests");
 
     if (test.enrolledStudents.length > 0) {
       await Notification.create(
