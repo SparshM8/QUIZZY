@@ -6,7 +6,6 @@
     },
     "backend": {
       "root": "backend",
-      "framework": "nodejs",
       "entrypoint": "api/dist-bundle.cjs"
     }
   },
