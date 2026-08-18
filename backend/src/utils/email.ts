@@ -1,5 +1,6 @@
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import https from "node:https";
+import { URL } from "node:url";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
 
@@ -63,27 +64,47 @@ export function validatePasswordStrength(password: string, email: string): strin
 }
 
 // ---------------------------------------------------------------------------
-// Sending (Brevo SMTP)
+// Sending (Brevo REST API — api.brevo.com/v3/smtp/email)
 // ---------------------------------------------------------------------------
 
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+
 export function isEmailSendingConfigured(): boolean {
-  return Boolean(env.brevoUser && env.brevoPassword && env.emailFromAddress);
+  return Boolean(env.brevoApiKey && env.emailFromAddress);
 }
 
-let smtpTransport: nodemailer.Transporter | null = null;
-
-/** Lazily create the Brevo SMTP transport (Brevo free-tier SMTP servers). */
-function getTransporter(): nodemailer.Transporter {
-  if (!smtpTransport) {
-    smtpTransport = nodemailer.createTransport({
-      host: "smtp-relay.brevo.com",
-      port: 587,
-      secure: false,
-      auth: { user: env.brevoUser, pass: env.brevoPassword },
-      tls: { minVersion: "TLSv1.2" },
+/**
+ * Minimal HTTPS POST wrapper using only Node built-ins — keeps the serverless
+ * bundle small (no nodemailer, no axios) and free of framework auto-detection.
+ */
+function brevoPostJson(body: unknown): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const url = new URL(BREVO_API_URL);
+    const payload = JSON.stringify(body);
+    const req = https.request(
+      {
+        hostname: url.hostname,
+        path: url.pathname,
+        method: "POST",
+        headers: {
+          "api-key": env.brevoApiKey,
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString() }));
+      },
+    );
+    req.on("error", reject);
+    req.setTimeout(15000, () => {
+      req.destroy(new Error("Brevo API request timed out"));
     });
-  }
-  return smtpTransport;
+    req.write(payload);
+    req.end();
+  });
 }
 
 const verificationTemplate = (name: string, link: string) => `
@@ -100,20 +121,22 @@ const verificationTemplate = (name: string, link: string) => `
 
 export async function sendVerificationEmail(name: string, email: string, token: string): Promise<boolean> {
   if (!isEmailSendingConfigured()) {
-    logger.info("Email sending not configured (BREVO_SMTP_* env vars missing); registration completes without email");
+    logger.info("Email sending not configured (BREVO_API_KEY / EMAIL_FROM_ADDRESS env vars missing); registration completes without email");
     return false;
   }
   try {
-    await getTransporter().sendMail({
-      from: env.emailFromAddress,
-      to: email,
+    const res = await brevoPostJson({
+      sender: { email: env.emailFromAddress },
+      to: [{ email }],
       subject: "Verify your QUIZZY email address",
-      html: verificationTemplate(name, buildVerificationLink(token)),
+      htmlContent: verificationTemplate(name, buildVerificationLink(token)),
     });
-    return true;
-  } catch (err) {
+    if (res.status >= 200 && res.status < 300) return true;
     // A sending failure must never block registration — log and let the user
     // recover via the resend-verification endpoint.
+    logger.error("Failed to send verification email", { status: res.status, body: res.body.slice(0, 300) });
+    return false;
+  } catch (err) {
     logger.error("Failed to send verification email", { error: String(err) });
     return false;
   }
