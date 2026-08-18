@@ -99,7 +99,7 @@ function brevoPostJson(body: unknown): Promise<{ status: number; body: string }>
       },
     );
     req.on("error", reject);
-    req.setTimeout(15000, () => {
+    req.setTimeout(30000, () => {
       req.destroy(new Error("Brevo API request timed out"));
     });
     req.write(payload);
@@ -125,6 +125,7 @@ export async function sendVerificationEmail(name: string, email: string, token: 
     return false;
   }
   try {
+    logger.info("Sending verification email via Brevo REST API", { to: email, keyConfigured: Boolean(env.brevoApiKey), from: env.emailFromAddress });
     const res = await brevoPostJson({
       sender: { email: env.emailFromAddress },
       to: [{ email }],
