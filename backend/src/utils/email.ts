@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
 
@@ -63,11 +63,27 @@ export function validatePasswordStrength(password: string, email: string): strin
 }
 
 // ---------------------------------------------------------------------------
-// Sending (Resend)
+// Sending (Brevo SMTP)
 // ---------------------------------------------------------------------------
 
 export function isEmailSendingConfigured(): boolean {
-  return Boolean(env.resendApiKey && env.emailFromAddress);
+  return Boolean(env.brevoUser && env.brevoPassword && env.emailFromAddress);
+}
+
+let smtpTransport: nodemailer.Transporter | null = null;
+
+/** Lazily create the Brevo SMTP transport (Brevo free-tier SMTP servers). */
+function getTransporter(): nodemailer.Transporter {
+  if (!smtpTransport) {
+    smtpTransport = nodemailer.createTransport({
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false,
+      auth: { user: env.brevoUser, pass: env.brevoPassword },
+      tls: { minVersion: "TLSv1.2" },
+    });
+  }
+  return smtpTransport;
 }
 
 const verificationTemplate = (name: string, link: string) => `
@@ -84,14 +100,13 @@ const verificationTemplate = (name: string, link: string) => `
 
 export async function sendVerificationEmail(name: string, email: string, token: string): Promise<boolean> {
   if (!isEmailSendingConfigured()) {
-    logger.info("Email sending not configured (RESEND_API_KEY/EMAIL_FROM_ADDRESS missing); registration completes without email");
+    logger.info("Email sending not configured (BREVO_SMTP_* env vars missing); registration completes without email");
     return false;
   }
   try {
-    const resend = new Resend(env.resendApiKey);
-    await resend.emails.send({
+    await getTransporter().sendMail({
       from: env.emailFromAddress,
-      to: [email],
+      to: email,
       subject: "Verify your QUIZZY email address",
       html: verificationTemplate(name, buildVerificationLink(token)),
     });

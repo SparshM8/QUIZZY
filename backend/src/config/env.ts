@@ -10,10 +10,11 @@ export const env = {
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:3000",
   corsOriginExplicit: typeof process.env.CORS_ORIGIN === "string" && process.env.CORS_ORIGIN.trim() !== "",
   appVersion: process.env.APP_VERSION ?? "0.1.0",
-  // Email verification (Resend free tier). Optional: when absent the platform
-  // still issues verification tokens but registration completes without an
-  // email being sent (see src/utils/email.ts).
-  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  // Email verification (Brevo free tier, 300 emails/day, SMTP). Optional: when
+  // absent the platform still issues verification tokens but registration
+  // completes without an email being sent (see src/utils/email.ts).
+  brevoUser: process.env.BREVO_SMTP_USER ?? "",
+  brevoPassword: process.env.BREVO_SMTP_PASSWORD ?? "",
   emailFromAddress: process.env.EMAIL_FROM_ADDRESS ?? "",
   platformUrl: process.env.PLATFORM_URL ?? "",
 };
