@@ -3,6 +3,7 @@
 // default export of CommonJS packages like `express` undefined, which made
 // `express()` return undefined in serverless execution. Importing the
 // namespace keeps `expressNs.default` resolvable at runtime.
+import path from "path";
 import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
@@ -79,6 +80,22 @@ app.use("/api/coding", globalLimiter, codingRouter);
 app.use("/api/assignments", globalLimiter, assignmentsRouter);
 app.use("/api/recruitment", globalLimiter, recruitmentRouter);
 app.use("/api/analytics", globalLimiter, analyticsRouter);
+
+// The same deployment also serves the built React frontend (copied into
+// `backend/public` by the `vercel:function-build` script), so this Express
+// app is the single entrypoint for both API and SPA requests.
+const staticAssetsDir = env.isProduction
+  ? path.join(__dirname, "../public")
+  : path.join(__dirname, "../../frontend/dist");
+const serveStatic = (expressMiddleware as unknown as {
+  static(rootPath: string): expressNs.RequestHandler;
+}).static;
+app.use(serveStatic(staticAssetsDir));
+// SPA fallback: any non-API GET request that did not match a static asset
+// receives index.html so React Router can render the client-side route.
+app.get(/^\/(?!api)/, (_req, res) => {
+  res.sendFile(path.join(staticAssetsDir, "index.html"));
+});
 
 app.use(notFoundHandler);
 app.use(errorHandler);

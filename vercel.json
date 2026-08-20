@@ -1,35 +1,15 @@
 {
-  "services": {
-    "frontend": {
-      "root": "frontend",
-      "framework": "vite",
-      "rewrites": [
-        {
-          "source": "/((?!api|assets|.*\\..*).*)",
-          "destination": "/index.html"
-        }
-      ]
-    },
-    "backend": {
-      "root": "backend",
-      "entrypoint": "api/entry.cjs",
-      "installCommand": "pnpm install"
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/entry.cjs",
+      "use": "@vercel/node"
     }
-  },
-  "rewrites": [
+  ],
+  "routes": [
     {
-      "source": "/api(/.*)?",
-      "destination": {
-        "type": "service",
-        "service": "backend"
-      }
-    },
-    {
-      "source": "/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
+      "src": "/(.*)",
+      "dest": "/api/entry.cjs"
     }
   ]
 }
