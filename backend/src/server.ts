@@ -90,10 +90,10 @@ app.use("/api/analytics", globalLimiter, analyticsRouter);
 // module and picking the first one that actually contains index.html.
 function resolveStaticDir(): string {
   const candidates = [
+    path.join(__dirname, "static"),
     path.join(__dirname, "../../public"),
     path.join(__dirname, "../public"),
     path.join(__dirname, "public"),
-    path.join(__dirname, "../static"),
   ];
   const resolved: { dir: string; hasIndex: boolean }[] = [];
   for (const candidate of candidates) {
