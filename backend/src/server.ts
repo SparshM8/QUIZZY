@@ -93,6 +93,7 @@ function resolveStaticDir(): string {
     path.join(__dirname, "../../public"),
     path.join(__dirname, "../public"),
     path.join(__dirname, "public"),
+    path.join(__dirname, "../static"),
   ];
   for (const candidate of candidates) {
     try {
