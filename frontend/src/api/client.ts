@@ -14,7 +14,11 @@ class ApiClient {
   ): Promise<T> {
     const token = localStorage.getItem("quizzy.accessToken");
     const headers = new Headers(options.headers);
-    headers.set("Content-Type", "application/json");
+    
+    if (!(options.body instanceof FormData)) {
+      headers.set("Content-Type", "application/json");
+    }
+    
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
     }
@@ -24,11 +28,30 @@ class ApiClient {
       headers,
     });
 
-    const data = (await res.json()) as { success?: boolean } | ApiError;
+    let data: any;
+    const contentType = res.headers.get("Content-Type");
+    
+    try {
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        // Fallback for non-JSON responses (like SPA HTML fallback)
+        const text = await res.text();
+        if (!res.ok) {
+          throw new Error(text || `Request failed with status ${res.status}`);
+        }
+        data = { success: true, data: text };
+      }
+    } catch (err) {
+      if (!res.ok) {
+        throw new Error(`Request failed with status ${res.status}`);
+      }
+      throw err;
+    }
 
     if (!res.ok) {
       const apiError = data as ApiError;
-      throw new Error(apiError.error?.message ?? "Request failed");
+      throw new Error(apiError.error?.message ?? `Request failed with status ${res.status}`);
     }
 
     return data as T;
@@ -39,7 +62,13 @@ class ApiClient {
   }
 
   post<T>(path: string, body?: unknown) {
-    return this.request<T>(path, { method: "POST", body: JSON.stringify(body) });
+    const options: RequestInit = { method: "POST" };
+    if (body instanceof FormData) {
+      options.body = body;
+    } else {
+      options.body = JSON.stringify(body);
+    }
+    return this.request<T>(path, options);
   }
 
   patch<T>(path: string, body?: unknown) {

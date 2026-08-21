@@ -13,7 +13,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: "Questions", path: "/questions" },
     { name: "Assignments", path: "/assignments" },
     { name: "Analytics", path: "/analytics" },
-    ...(session?.user.role === "recruiter" || session?.user.role === "admin"
+    ...(session?.user?.role === "recruiter" || session?.user?.role === "admin"
       ? [{ name: "Recruitment", path: "/recruitment" }]
       : [{ name: "Applications", path: "/applications" }]),
     { name: "Notifications", path: "/notifications" },
@@ -26,9 +26,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="flex items-center gap-2">
               <span className="text-2xl font-bold tracking-tight text-primary-600">Quizzy</span>
-              <span className="hidden rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 sm:inline-block">
-                {session?.user.role}
-              </span>
+              {session?.user?.role && (
+                <span className="hidden rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 sm:inline-block">
+                  {session.user.role}
+                </span>
+              )}
             </Link>
           </div>
 
@@ -50,10 +52,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="hidden flex-col items-end sm:flex">
-              <span className="text-sm font-semibold text-slate-900">{session?.user.name}</span>
-              <span className="text-xs text-slate-500">{session?.user.email}</span>
-            </div>
+            {session?.user && (
+              <div className="hidden flex-col items-end sm:flex">
+                <span className="text-sm font-semibold text-slate-900">{session.user.name}</span>
+                <span className="text-xs text-slate-500">{session.user.email}</span>
+              </div>
+            )}
             <button
               onClick={() => logout()}
               className="hidden rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-inset ring-slate-300 hover:bg-slate-50 sm:block"
@@ -96,10 +100,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
               <div className="mt-4 border-t border-slate-200 pt-4">
-                <div className="px-3">
-                  <p className="text-base font-medium text-slate-800">{session?.user.name}</p>
-                  <p className="text-sm font-medium text-slate-500">{session?.user.email}</p>
-                </div>
+                {session?.user && (
+                  <div className="px-3">
+                    <p className="text-base font-medium text-slate-800">{session.user.name}</p>
+                    <p className="text-sm font-medium text-slate-500">{session.user.email}</p>
+                  </div>
+                )}
                 <button
                   onClick={() => logout()}
                   className="mt-3 block w-full px-3 py-2 text-left text-base font-medium text-red-600 hover:bg-red-50"

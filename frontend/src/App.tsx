@@ -70,7 +70,9 @@ export function App() {
         path="/tests"
         element={
           <ProtectedRoute>
-            <TestsListPage />
+            <Layout>
+              <TestsListPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -78,7 +80,9 @@ export function App() {
         path="/tests/create"
         element={
           <ProtectedRoute>
-            <CreateTestPage />
+            <Layout>
+              <CreateTestPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -86,7 +90,9 @@ export function App() {
         path="/tests/:testId"
         element={
           <ProtectedRoute>
-            <TakeTestPage />
+            <Layout>
+              <TakeTestPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -94,7 +100,9 @@ export function App() {
         path="/tests/:testId/attempts/:attemptId/result"
         element={
           <ProtectedRoute>
-            <ResultPage />
+            <Layout>
+              <ResultPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -102,7 +110,9 @@ export function App() {
         path="/questions"
         element={
           <ProtectedRoute>
-            <QuestionsPage />
+            <Layout>
+              <QuestionsPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -110,7 +120,9 @@ export function App() {
         path="/notifications"
         element={
           <ProtectedRoute>
-            <NotificationsPage />
+            <Layout>
+              <NotificationsPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -118,7 +130,9 @@ export function App() {
         path="/assignments"
         element={
           <ProtectedRoute>
-            <AssignmentsPage />
+            <Layout>
+              <AssignmentsPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -126,7 +140,9 @@ export function App() {
         path="/assignments/:assignmentId"
         element={
           <ProtectedRoute>
-            <AssignmentDetailPage />
+            <Layout>
+              <AssignmentDetailPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
@@ -164,7 +180,9 @@ export function App() {
         path="/code/:questionId"
         element={
           <ProtectedRoute>
-            <CodeQuestionPage />
+            <Layout>
+              <CodeQuestionPage />
+            </Layout>
           </ProtectedRoute>
         }
       />
