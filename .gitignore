@@ -7,4 +7,3 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 public/
-!backend/public/

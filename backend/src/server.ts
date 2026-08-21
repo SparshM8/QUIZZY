@@ -95,25 +95,15 @@ function resolveStaticDir(): string {
     path.join(__dirname, "../public"),
     path.join(__dirname, "public"),
   ];
-  const resolved: { dir: string; hasIndex: boolean }[] = [];
   for (const candidate of candidates) {
     try {
-      const hasIndex = fs.existsSync(path.join(candidate, "index.html"));
-      resolved.push({ dir: candidate, hasIndex });
-      if (hasIndex) {
+      if (fs.existsSync(path.join(candidate, "index.html"))) {
         return candidate;
       }
     } catch {
       // ignore and try the next candidate
     }
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    "[quizzy] static assets not found; __dirname:",
-    __dirname,
-    "candidates:",
-    JSON.stringify(resolved)
-  );
   return candidates[0];
 }
 const staticAssetsDir = resolveStaticDir();
