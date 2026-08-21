@@ -25,7 +25,7 @@ export default function QuestionsPage() {
     setLoading(true);
     try {
       const res = await api.get<{ success: boolean; data: { items: QuestionDto[] } }>("/api/questions");
-      // Safely handle the response structure
+      // res.data is the { items, pagination } object from backend
       const items = res.data?.items || [];
       setQuestions(Array.isArray(items) ? items : []);
     } catch (err) {
