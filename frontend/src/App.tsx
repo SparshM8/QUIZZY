@@ -4,6 +4,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import TestsListPage from "./pages/TestsListPage";
+import CreateTestPage from "./pages/CreateTestPage";
 import TakeTestPage from "./pages/TakeTestPage";
 import ResultPage from "./pages/ResultPage";
 import QuestionsPage from "./pages/QuestionsPage";
@@ -70,6 +71,14 @@ export function App() {
         element={
           <ProtectedRoute>
             <TestsListPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tests/create"
+        element={
+          <ProtectedRoute>
+            <CreateTestPage />
           </ProtectedRoute>
         }
       />
