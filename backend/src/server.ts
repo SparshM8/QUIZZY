@@ -83,13 +83,28 @@ app.use("/api/analytics", globalLimiter, analyticsRouter);
 
 // The same deployment also serves the built React frontend (copied into
 // `backend/public` by the `vercel:function-build` script), so this Express
-// app is the single entrypoint for both API and SPA requests.
-// In serverless execution the bundled entry lives at
-// backend/api/entry.cjs (/var/task/backend/api), so the frontend build
-// copied into backend/public is two levels up; in local development the
-// compiled output is backend/dist, making the frontend dist two levels up
-// as well.
-const staticAssetsDir = path.join(__dirname, "../../public");
+// app is the single entrypoint for both API and SPA requests. The exact
+// runtime location of the module varies by bundler/runtime, so the static
+// directory is resolved by probing candidate locations relative to this
+// module and picking the first one that actually contains index.html.
+function resolveStaticDir(): string {
+  const candidates = [
+    path.join(__dirname, "../../public"),
+    path.join(__dirname, "../public"),
+    path.join(__dirname, "public"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(path.join(candidate, "index.html"))) {
+        return candidate;
+      }
+    } catch {
+      // ignore and try the next candidate
+    }
+  }
+  return candidates[0];
+}
+const staticAssetsDir = resolveStaticDir();
 const serveStatic = (expressMiddleware as unknown as {
   static(rootPath: string): expressNs.RequestHandler;
 }).static;
