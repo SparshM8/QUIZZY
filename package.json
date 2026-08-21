@@ -1,0 +1,6 @@
+{
+  "name": "quizzy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QUIZZY — assessment, recruitment and analytics platform (frontend + backend monorepo)"
+}
