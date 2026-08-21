@@ -1,4 +1,0 @@
-approvedBuilds:
-  esbuild: true
-  mongodb-memory-server: true
-  msgpackr-extract: true
