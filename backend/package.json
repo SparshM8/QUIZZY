@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "rm -rf dist && tsc && esbuild api/index.js --bundle --platform=node --format=cjs --outfile=api/entry.cjs --minify",
-    "vercel:function-build": "npm run build && mkdir -p public && rm -rf public/* && cp -r ../frontend/dist/* public/",
+    "vercel:function-build": "npm install --prefix ../frontend && npm run build --prefix ../frontend && npm run build && mkdir -p public && rm -rf public/* && cp -r ../frontend/dist/* public/",
     "build:function": "npm run vercel:function-build",
     "typecheck": "tsc -p tsconfig.api.json",
     "start": "node dist/server.js",
