@@ -3,6 +3,7 @@
 // default export of CommonJS packages like `express` undefined, which made
 // `express()` return undefined in serverless execution. Importing the
 // namespace keeps `expressNs.default` resolvable at runtime.
+import fs from "fs";
 import path from "path";
 import helmet from "helmet";
 import cors from "cors";
