@@ -28,7 +28,7 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
     if (!enrollment) {
       throw new AppError(403, "FORBIDDEN", "You are not enrolled in this test");
     }
-    if (test.status !== "published") {
+    if (test.status !== "published" && test.status !== "in_progress") {
       throw new AppError(409, "CONFLICT", "This test is not currently available");
     }
 
