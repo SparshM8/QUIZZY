@@ -25,6 +25,7 @@ import { assignmentsRouter } from "./routes/assignments";
 
 import { analyticsRouter } from "./routes/analytics";
 import { aiRouter } from "./routes/ai";
+import { getHealth } from "./controllers/health";
 import { startJudgeWorker } from "./judge/worker";
 
 // Namespace import is used deliberately: the Vercel function bundler
@@ -86,6 +87,7 @@ app.use("/api/assignments", globalLimiter, assignmentsRouter);
 
 app.use("/api/analytics", globalLimiter, analyticsRouter);
 app.use("/api/ai", globalLimiter, aiRouter);
+app.get("/api/health", getHealth);
 
 // The same deployment also serves the built React frontend (copied into
 // `backend/public` by the `vercel:function-build` script), so this Express

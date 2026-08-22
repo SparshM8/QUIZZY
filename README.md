@@ -1,6 +1,6 @@
-# Quizzy
+# Quizzy Placement Pro
 
-A comprehensive education, assessment, coding, examination, project-submission, and recruitment-assessment platform — built from a clean foundation with a phased, approval-first engineering process.
+**Quizzy Placement Pro** is a comprehensive, industry-grade assessment and placement preparation platform designed for colleges and recruitment drives. It combines advanced AI proctoring, multi-language coding challenges, and deep performance analytics into a single, high-performance ecosystem.
 
 ## Documentation (Start Here)
 
