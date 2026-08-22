@@ -10,7 +10,7 @@ export function gradeObjectiveAnswer(
 ): number | undefined {
   const type = question.type;
 
-  if (type === "mcq" || type === "true_false") {
+  if (type === "mcq" || type === "true_false" || type === "aptitude" || type === "reasoning") {
     if (!question.options) return undefined;
     const selected = Array.isArray(answer) ? answer : answer ? [answer] : [];
     const correct = question.options.answerIds;

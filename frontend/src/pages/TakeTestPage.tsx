@@ -233,7 +233,7 @@ function AnswerInput({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  if (type === "mcq" || type === "true_false") {
+  if (type === "mcq" || type === "true_false" || type === "aptitude" || type === "reasoning") {
     const choices = (question.options as { choices: { id: string; text: string }[] })?.choices ?? [];
     return (
       <div className="space-y-2">
