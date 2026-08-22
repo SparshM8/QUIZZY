@@ -67,10 +67,10 @@ export default function LiveCommandCenter() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">
-                      {attempt.studentName.charAt(0)}
+                      {(attempt.studentName || "?").charAt(0)}
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-gray-900">{attempt.studentName}</h3>
+                      <h3 className="text-sm font-bold text-gray-900">{attempt.studentName || "Unknown Student"}</h3>
                       <p className="text-xs text-gray-500">{attempt.testTitle}</p>
                     </div>
                   </div>
@@ -99,10 +99,10 @@ export default function LiveCommandCenter() {
                         Critical Alert
                       </div>
                       <p className="text-xs text-red-600 font-medium">
-                        {attempt.lastViolationType.replace('_', ' ')} detected
+                        {attempt.lastViolationType?.replace('_', ' ') || "N/A"} detected
                       </p>
                       <p className="text-[10px] text-red-400 mt-1">
-                        {new Date(attempt.lastViolationTime!).toLocaleTimeString()}
+                        {attempt.lastViolationTime ? new Date(attempt.lastViolationTime).toLocaleTimeString() : "N/A"}
                       </p>
                     </div>
                   )}

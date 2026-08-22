@@ -42,6 +42,11 @@ class ApiClient {
         }
         data = { success: true, data: text };
       }
+      
+      // Safety check: if data is a string (e.g. HTML fallback) but we expect JSON
+      if (typeof data === 'string' && data.trim().startsWith('<!DOCTYPE html>')) {
+        throw new Error("Received HTML instead of JSON. The server might be misconfigured or the route is incorrect.");
+      }
     } catch (err) {
       if (!res.ok) {
         throw new Error(`Request failed with status ${res.status}`);

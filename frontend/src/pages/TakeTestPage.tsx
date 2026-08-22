@@ -60,9 +60,16 @@ export default function TakeTestPage() {
       // Try loading from local storage first (offline resilience)
       const localData = localStorage.getItem(`quizzy_attempt_${attemptId}`);
       if (localData) {
-        const parsed = JSON.parse(localData);
-        setAnswers(parsed.answers);
-        setRemainingMs(parsed.remainingMs);
+        try {
+          const parsed = JSON.parse(localData);
+          if (parsed && typeof parsed === 'object') {
+            setAnswers(parsed.answers || {});
+            setRemainingMs(parsed.remainingMs || 0);
+          }
+        } catch (e) {
+          console.error("Failed to parse local storage attempt data", e);
+          localStorage.removeItem(`quizzy_attempt_${attemptId}`);
+        }
       }
 
       try {
