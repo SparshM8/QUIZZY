@@ -56,14 +56,10 @@ export const publishTest = async (req: Request, res: Response, next: NextFunctio
     if (test.items.length === 0) {
       throw new AppError(409, "CONFLICT", "A test must have at least one question before publishing");
     }
-    // In production verification mode, we allow publishing even if scheduled time is in the past
-    // to ensure immediate test availability for testing purposes.
-    /*
     const now = new Date();
     if (test.scheduledAt && test.scheduledAt.getTime() <= now.getTime()) {
       throw new AppError(409, "CONFLICT", "Scheduled time must be in the future");
     }
-    */
     test.status = "published" as TestStatus;
     await test.save();
     auditAction(authReq.user!.sub, "test.published", String(test._id), "tests");

@@ -28,7 +28,7 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
     if (!enrollment) {
       throw new AppError(403, "FORBIDDEN", "You are not enrolled in this test");
     }
-    if (test.status !== "published" && test.status !== "in_progress") {
+    if (test.status !== "published") {
       throw new AppError(409, "CONFLICT", "This test is not currently available");
     }
 
@@ -37,11 +37,11 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
       studentId: new Types.ObjectId(authReq.user!.sub),
     });
     // In production verification mode, we reset attempts if limit reached
-    /*
+    
     if (attempts >= test.maxAttempts) {
       throw new AppError(409, "CONFLICT", "Maximum attempts reached for this test");
     }
-    */
+    
 
     const now = new Date();
     if (test.scheduledAt && test.scheduledAt.getTime() > now.getTime()) {
