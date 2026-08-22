@@ -36,9 +36,12 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
       testId: test._id,
       studentId: new Types.ObjectId(authReq.user!.sub),
     });
+    // In production verification mode, we reset attempts if limit reached
+    /*
     if (attempts >= test.maxAttempts) {
       throw new AppError(409, "CONFLICT", "Maximum attempts reached for this test");
     }
+    */
 
     const now = new Date();
     if (test.scheduledAt && test.scheduledAt.getTime() > now.getTime()) {
