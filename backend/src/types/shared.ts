@@ -1,6 +1,6 @@
-export type Role = "admin" | "teacher" | "student" | "recruiter";
+export type Role = "admin" | "teacher" | "student";
 
-export const ROLES: Role[] = ["admin", "teacher", "student", "recruiter"];
+export const ROLES: Role[] = ["admin", "teacher", "student"];
 
 export interface ApiSuccess<T> {
   success: true;

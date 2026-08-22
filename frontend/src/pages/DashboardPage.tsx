@@ -19,10 +19,6 @@ const ROLE_SUMMARIES: Record<string, { title: string; items: string[] }> = {
     title: "Your assessments",
     items: ["Upcoming quizzes and exams", "Active assignments", "Past results and certificates"],
   },
-  recruiter: {
-    title: "Hiring workspace",
-    items: ["Create hiring campaigns", "Invite candidates to assessments", "Rank and shortlist applicants"],
-  },
 };
 
 function statLink(to: string, label: string) {
@@ -32,7 +28,7 @@ function statLink(to: string, label: string) {
 export function DashboardPage() {
   const { session } = useAuth();
   const isTeacher = session?.user.role === "teacher";
-  const isRecruiter = session?.user.role === "recruiter" || session?.user.role === "admin";
+  const isAdmin = session?.user.role === "admin";
   const [counts, setCounts] = useState({ questions: 0, tests: 0, notifications: 0 });
 
   useEffect(() => {
@@ -52,9 +48,9 @@ export function DashboardPage() {
     ]).then(([questions, tests, notifications]) => setCounts({ questions, tests, notifications }));
   }, []);
 
-  const stats = isRecruiter
+  const stats = isAdmin
     ? [
-        statLink("/recruitment", "Recruitment"),
+        statLink("/users", "Users"),
         statLink("/tests", "Assessments"),
         statLink("/notifications", "Notifications"),
       ]

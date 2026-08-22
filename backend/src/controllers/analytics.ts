@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { Attempt } from "../models/Attempt";
 import { Test } from "../models/Test";
 import { User } from "../models/User";
-import { RecruitmentApplication, RecruitmentCampaign, RecruitmentInvitation } from "../models/Recruitment";
+
 import { AppError } from "../middleware/errorHandler";
 import { AuthenticatedRequest } from "../middleware/auth";
 
@@ -67,17 +67,4 @@ export const getTestLeaderboard = async (req: Request, res: Response, next: Next
   } catch (err) { next(err); }
 };
 
-export const getCampaignSummary = async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const authReq = req as unknown as AuthenticatedRequest;
-    const campaignId = assertObjectId(req.params.campaignId, "campaignId");
-    const campaign = await RecruitmentCampaign.findById(campaignId).select("title roleTitle createdBy status");
-    if (!campaign) throw new AppError(404, "NOT_FOUND", "Campaign not found");
-    if (authReq.user!.role !== "admin" && String(campaign.createdBy) !== authReq.user!.sub) throw new AppError(403, "FORBIDDEN", "Only the campaign owner or an admin can view insights");
-    const [invites, applications] = await Promise.all([RecruitmentInvitation.find({ campaignId }).select("status").lean(), RecruitmentApplication.find({ campaignId }).select("status score").lean()]);
-    const completed = applications.filter((application) => application.status === "completed" || application.status === "shortlisted");
-    const scores = completed.map((application) => application.score).filter((score): score is number => typeof score === "number");
-    const statusCounts = ["invited", "started", "completed", "shortlisted", "rejected"].map((status) => ({ status, count: applications.filter((application) => application.status === status).length }));
-    res.json({ success: true, data: { campaign: { id: campaign.id, title: campaign.title, roleTitle: campaign.roleTitle, status: campaign.status }, invitations: { total: invites.length, accepted: invites.filter((invite) => invite.status === "accepted").length, pending: invites.filter((invite) => invite.status === "pending").length }, applications: { total: applications.length, completionRate: applications.length ? Math.round((completed.length / applications.length) * 100) : 0, averageScore: scores.length ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0, statusCounts } } });
-  } catch (err) { next(err); }
-};
+

@@ -13,7 +13,7 @@ export const listUsersController = async (req: AuthenticatedRequest, res: Respon
     const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string, 10) || 20));
     const filter: Record<string, unknown> = {};
     if (req.query.role) filter.role = req.query.role;
-    // Allow teachers/recruiters to locate a candidate by their public ID.
+    // Allow teachers/admins to locate a candidate by their public ID.
     if (typeof req.query.candidateId === "string" && req.query.candidateId.trim()) {
       filter.candidateId = req.query.candidateId.trim().toUpperCase();
     }

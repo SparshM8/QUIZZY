@@ -11,7 +11,7 @@ function formatSchedule(iso?: string) {
 
 export default function TestsListPage() {
   const { session } = useAuth();
-  const isTeacher = session?.user.role === "teacher" || session?.user.role === "admin" || session?.user.role === "recruiter";
+  const isTeacher = session?.user.role === "teacher" || session?.user.role === "admin";
   const [tests, setTests] = useState<TestDto[]>([]);
   const [loading, setLoading] = useState(true);
 

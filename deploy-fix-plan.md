@@ -1,4 +1,4 @@
-# QUIZZY Deployment Fix Log - Aug 21, 2026
+# QUIZZY Deployment Fix & Verification Log - Aug 21, 2026
 
 ## CRITICAL: White Screen Fix (Production)
 - **Problem**: Production app showed a white screen after commit `4ebf1ae`.
@@ -21,6 +21,20 @@
   - Updated `QuestionsPage.tsx` with robust null checks for the API response and improved the question creation form.
   - Enhanced `CreateTestPage.tsx` with a question selection sidebar, allowing users to browse and add questions from the bank.
   - Verified backend validation rules for different question types (MCQ, Coding, etc.) to ensure frontend payloads are compatible.
+
+## End-to-End Verification (Planned)
+### Credentials
+- **Admin**: callme8samay@gmail.com / HiB@byBorn31
+- **Student**: its8samay@gmail.com / Itsme8$amay_
+
+### Verification Steps
+1. **Admin Login**: Verify dashboard loads.
+2. **Question Creation**: Create 1 MCQ and 1 Coding question.
+3. **Test Creation**: Create a new test and select the created questions.
+4. **Link Sharing**: Copy the test link.
+5. **Student Login**: Log in as student.
+6. **Test Attempt**: Use the link to attempt the test.
+7. **Submission**: Submit the test and verify result generation.
 
 ## Deployment Details
 - **Project ID**: prj_NOJfxKdJnTRyO0hpywyQfb4h2VrO

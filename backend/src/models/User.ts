@@ -19,7 +19,7 @@ export interface UserDocument extends Document {
   avatar?: string;
   refreshToken?: string;
   // Public tracking identifier, e.g. QUIZ-A7K2-M9P4. Visible to teachers and
-  // recruiters for reporting without exposing internal database keys.
+  // administrators for reporting without exposing internal database keys.
   candidateId?: string;
   isEmailVerified: boolean;
   createdAt: Date;

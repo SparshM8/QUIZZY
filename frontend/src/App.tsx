@@ -12,8 +12,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import CodeQuestionPage from "./pages/CodeQuestionPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import AssignmentDetailPage from "./pages/AssignmentDetailPage";
-import RecruitmentPage from "./pages/RecruitmentPage";
-import CandidateApplicationsPage from "./pages/CandidateApplicationsPage";
+
 import AnalyticsPage from "./pages/AnalyticsPage";
 import { useAuth } from "./context/auth";
 
@@ -146,16 +145,7 @@ export function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/recruitment"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <RecruitmentPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/analytics"
         element={
@@ -166,16 +156,7 @@ export function App() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/applications"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <CandidateApplicationsPage />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
+
       <Route
         path="/code/:questionId"
         element={

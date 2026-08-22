@@ -5,7 +5,7 @@ import type { AuthenticatedRequest } from "./auth";
 
 /**
  * Blocks unverified users from writing operations (taking tests, submitting
- * answers, applying to recruitment campaigns). Reading and browsing remain
+ * answers, starting assessments). Reading and browsing remain
  * available so an unverified user can fix their account at any time.
  */
 export function requireVerified(req: Request, _res: Response, next: NextFunction): void {

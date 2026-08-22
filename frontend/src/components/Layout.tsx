@@ -13,9 +13,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: "Questions", path: "/questions" },
     { name: "Assignments", path: "/assignments" },
     { name: "Analytics", path: "/analytics" },
-    ...(session?.user?.role === "recruiter" || session?.user?.role === "admin"
-      ? [{ name: "Recruitment", path: "/recruitment" }]
-      : [{ name: "Applications", path: "/applications" }]),
     { name: "Notifications", path: "/notifications" },
   ];
 
