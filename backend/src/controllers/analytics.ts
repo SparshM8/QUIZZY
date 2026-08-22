@@ -72,7 +72,7 @@ export const exportTestReport = async (req: Request, res: Response, next: NextFu
   try {
     const authReq = req as unknown as AuthenticatedRequest;
     const testId = assertObjectId(req.params.testId, "testId");
-    const format = req.query.format === "excel" ? "excel" : "csv"; // Default to CSV for simplicity, user can open in Excel
+    // const format = req.query.format === "excel" ? "excel" : "csv"; // Default to CSV for simplicity, user can open in Excel
     
     const test = await Test.findById(testId).select("title createdBy");
     if (!test) throw new AppError(404, "NOT_FOUND", "Test not found");

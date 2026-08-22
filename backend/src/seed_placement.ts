@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Question } from "./models/Question";
 import { connectDatabase, disconnectDatabase } from "./config/database";
-import { env } from "./config/env";
+// import { env } from "./config/env";
 
 const QUESTIONS = [
   // Aptitude
