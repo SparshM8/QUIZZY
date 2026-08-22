@@ -30,11 +30,13 @@ export interface AttemptDocument extends Document {
   maxPossibleScore: number;
   durationMinutes: number;
   attemptNumber: number;
-  violations: Array<{
-    type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "ai_detection" | "other";
+    violations: Array<{
+    type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "ai_detection" | "face_mismatch" | "other";
     timestamp: Date;
     details?: string;
   }>;
+  identityVerified: boolean;
+  faceDescriptor?: number[];
 }
 
 const attemptSchema = new Schema<AttemptDocument>(
@@ -62,11 +64,13 @@ const attemptSchema = new Schema<AttemptDocument>(
     attemptNumber: { type: Number, default: 1 },
     violations: [
       {
-        type: { type: String, enum: ["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "ai_detection", "other"], required: true },
+        type: { type: String, enum: ["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "ai_detection", "face_mismatch", "other"], required: true },
         timestamp: { type: Date, default: Date.now },
         details: { type: String },
       },
     ],
+    identityVerified: { type: Boolean, default: false },
+    faceDescriptor: { type: [Number] },
   },
   { timestamps: true }
 );

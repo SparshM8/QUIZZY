@@ -115,4 +115,93 @@ export const exportTestReport = async (req: Request, res: Response, next: NextFu
   } catch (err) { next(err); }
 };
 
+export const getLiveStatus = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as unknown as AuthenticatedRequest;
+    if (authReq.user!.role !== "admin" && authReq.user!.role !== "teacher") {
+      throw new AppError(403, "FORBIDDEN", "Only faculty can access live monitoring");
+    }
+
+    const activeAttempts = await Attempt.find({ status: "in_progress" })
+      .populate("studentId", "name")
+      .populate("testId", "title items")
+      .lean();
+
+    const data = activeAttempts.map((a) => {
+      const lastViolation = a.violations.length > 0 ? a.violations[a.violations.length - 1] : null;
+      const test = a.testId as any;
+      const totalQuestions = test?.items?.length || 1;
+      const progress = Math.round((a.answers.length / totalQuestions) * 100);
+
+      return {
+        id: a._id,
+        studentName: (a.studentId as any).name,
+        testTitle: test?.title || "Unknown Test",
+        violationCount: a.violations.length,
+        lastViolationType: lastViolation?.type,
+        lastViolationTime: lastViolation?.timestamp,
+        status: a.status,
+        progress,
+      };
+    });
+
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getSkillAnalytics = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as unknown as AuthenticatedRequest;
+    const studentId = new Types.ObjectId(authReq.user!.sub);
+
+    const attempts = await Attempt.find({ studentId, status: { $in: ["submitted", "auto_submitted"] } })
+      .populate({
+        path: "answers.questionId",
+        select: "type difficulty tags"
+      })
+      .lean();
+
+    const categories = ["aptitude", "reasoning", "coding", "technical"];
+    const skillMap: Record<string, { score: number; max: number }> = {};
+    categories.forEach(c => skillMap[c] = { score: 0, max: 0 });
+
+    attempts.forEach(attempt => {
+      attempt.answers.forEach((ans: any) => {
+        const q = ans.questionId;
+        if (!q) return;
+        const type = q.type === "mcq" ? "technical" : q.type;
+        if (skillMap[type]) {
+          skillMap[type].score += ans.score || 0;
+          skillMap[type].max += ans.maxScore || 0;
+        }
+      });
+    });
+
+    const recommendations: Record<string, string[]> = {
+      aptitude: ["Practice more Time and Work problems.", "Improve calculation speed for Profit and Loss.", "Focus on Quantitative Aptitude fundamentals."],
+      reasoning: ["Solve more Number Series puzzles.", "Work on Logical Deduction and Syllogisms.", "Practice abstract reasoning patterns."],
+      coding: ["Master Data Structures like Trees and Graphs.", "Focus on Time Complexity optimization.", "Practice competitive programming on LeetCode."],
+      technical: ["Deep dive into OS and Networking concepts.", "Review DBMS and SQL query optimization.", "Strengthen Core Java/Python fundamentals."]
+    };
+
+    const data = Object.entries(skillMap).map(([category, stats]) => {
+      const readiness = stats.max > 0 ? Math.round((stats.score / stats.max) * 100) : 0;
+      const recs = recommendations[category] || ["Keep practicing!"];
+      return {
+        category: category.charAt(0).toUpperCase() + category.slice(1),
+        score: stats.score,
+        maxScore: stats.max,
+        readiness,
+        recommendation: readiness < 70 ? recs[Math.floor(Math.random() * recs.length)] : "You are doing great in this area! Focus on maintaining your speed."
+      };
+    }).filter(s => s.maxScore > 0);
+
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 

@@ -4,6 +4,7 @@ import { AppError } from "../middleware/errorHandler";
 import { toSafeObject } from "../utils/sanitize";
 import { auditAction } from "../models/AuditEvent";
 import type { AuthenticatedRequest } from "../middleware/auth";
+import { parse } from "csv-parse/sync";
 
 function requireQuestionFields(body: Record<string, unknown>, type: QuestionType): void {
   if (type === "mcq" || type === "multi_select" || type === "true_false") {
@@ -180,6 +181,67 @@ export const moderateQuestion = async (req: Request, res: Response, next: NextFu
   auditAction(authReq.user!.sub, `question.${status}`, String(question._id), "questions", { moderatorComment });
 
     res.json({ success: true, data: toSafeObject(question) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkUploadQuestions = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as unknown as AuthenticatedRequest;
+    if (!req.file) {
+      throw new AppError(400, "VALIDATION_ERROR", "No CSV file uploaded");
+    }
+
+    const csvData = req.file.buffer.toString();
+    const records = parse(csvData, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    });
+
+    const questionsToCreate = [];
+    for (const record of records as any[]) {
+      // Basic validation for bulk upload
+      if (!record.title || !record.statement || !record.type) continue;
+
+      const payload: any = {
+        title: record.title,
+        statement: record.statement,
+        type: record.type,
+        difficulty: record.difficulty || "easy",
+        points: parseInt(record.points) || 10,
+        createdBy: authReq.user!.sub,
+        status: "approved", // Bulk upload by faculty is pre-approved
+        tags: record.tags ? record.tags.split(",").map((t: string) => t.trim()) : [],
+      };
+
+      // Handle MCQ choices from CSV (format: Choice 1|Choice 2|Choice 3)
+      if (record.choices && record.answerIndex !== undefined) {
+        const choices = record.choices.split("|").map((text: string, idx: number) => ({
+          id: String(idx + 1),
+          text: text.trim(),
+        }));
+        payload.options = {
+          choices,
+          answerIds: [String(parseInt(record.answerIndex) + 1)],
+        };
+      }
+
+      questionsToCreate.push(payload);
+    }
+
+    if (questionsToCreate.length === 0) {
+      throw new AppError(400, "VALIDATION_ERROR", "No valid questions found in CSV");
+    }
+
+    const created = await Question.insertMany(questionsToCreate);
+    
+    auditAction(authReq.user!.sub, "questions.bulk_upload", "multiple", "questions", {
+      count: created.length,
+    });
+
+    res.json({ success: true, data: { count: created.length } });
   } catch (err) {
     next(err);
   }

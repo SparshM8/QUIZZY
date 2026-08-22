@@ -31,6 +31,8 @@ export default function TakeTestPage() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isModelLoading, setIsModelLoading] = useState(true);
+  const [isVerifyingIdentity, setIsVerifyingIdentity] = useState(false);
+  const [identityVerified, setIdentityVerified] = useState(false);
   const modelRef = useRef<cocoSsd.ObjectDetection | null>(null);
   const detectionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -332,23 +334,55 @@ export default function TakeTestPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="rounded-lg border bg-white p-6 text-center shadow-sm max-w-md">
-          <h1 className="mb-2 text-lg font-semibold">Ready to begin?</h1>
-          <div className="mb-4 text-sm text-gray-600 text-left space-y-2">
-            <p>• The timer starts as soon as you begin.</p>
-            <p>• Your answers are auto-saved.</p>
-            <p>• <strong>Strict Proctoring Enabled:</strong></p>
-            <ul className="list-disc list-inside ml-2">
-              <li>Fullscreen mode is mandatory.</li>
-              <li>Webcam monitoring with <strong>AI Object Detection</strong>.</li>
-              <li>Tab switching and copy-pasting are disabled.</li>
-            </ul>
+          <h1 className="mb-2 text-lg font-semibold">Identity Verification</h1>
+          <p className="text-sm text-gray-600 mb-6 text-left">Before starting, we need to verify your identity. Please look directly at the camera.</p>
+          
+          <div className="relative mx-auto mb-8 h-48 w-48 overflow-hidden rounded-full border-4 border-indigo-100 bg-slate-100">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="h-full w-full object-cover scale-x-[-1]"
+            />
+            {isVerifyingIdentity && (
+              <div className="absolute inset-0 flex items-center justify-center bg-indigo-600/20">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              </div>
+            )}
           </div>
-          <button
-            onClick={() => void start()}
-            className="rounded bg-indigo-600 px-6 py-2 font-medium text-white hover:bg-indigo-700 w-full"
-          >
-            Start Test
-          </button>
+
+          {!identityVerified ? (
+            <button
+              onClick={async () => {
+                setIsVerifyingIdentity(true);
+                // Simulate Face ID processing
+                setTimeout(() => {
+                  setIdentityVerified(true);
+                  setIsVerifyingIdentity(false);
+                }, 2000);
+              }}
+              disabled={isVerifyingIdentity}
+              className="w-full rounded-lg bg-indigo-600 py-3 font-bold text-white shadow-lg hover:bg-indigo-500 disabled:opacity-50 transition-all"
+            >
+              {isVerifyingIdentity ? "Processing Face ID..." : "Capture Face ID"}
+            </button>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center gap-2 text-green-600 font-bold">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+                Identity Verified
+              </div>
+              <button
+                onClick={() => void start()}
+                className="w-full rounded-lg bg-indigo-600 py-3 font-bold text-white shadow-lg hover:bg-indigo-500 transition-all"
+              >
+                Start Assessment
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

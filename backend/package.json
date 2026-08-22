@@ -1,7 +1,7 @@
 {
   "name": "quizzy-backend",
   "version": "0.1.0",
-  "description": "Quizzy \u2014 assessment platform backend (Node.js, Express, TypeScript, MongoDB)",
+  "description": "Quizzy — assessment platform backend (Node.js, Express, TypeScript, MongoDB)",
   "main": "dist/server.js",
   "scripts": {
     "build": "rm -rf dist && tsc && esbuild api/index.js --bundle --platform=node --format=cjs --outfile=api/entry.cjs --minify",
@@ -20,6 +20,7 @@
     "bcryptjs": "^2.4.3",
     "bullmq": "^6.1.2",
     "cors": "^2.8.5",
+    "csv-parse": "^7.0.2",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-rate-limit": "^7.2.0",

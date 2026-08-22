@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import LandingPage from "./pages/LandingPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import TestsListPage from "./pages/TestsListPage";
 import CreateTestPage from "./pages/CreateTestPage";
@@ -14,6 +15,8 @@ import AssignmentsPage from "./pages/AssignmentsPage";
 import AssignmentDetailPage from "./pages/AssignmentDetailPage";
 
 import AnalyticsPage from "./pages/AnalyticsPage";
+import LiveCommandCenter from "./pages/LiveCommandCenter";
+import SkillGapAnalytics from "./pages/SkillGapAnalytics";
 import { useAuth } from "./context/auth";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -39,6 +42,14 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 export function App() {
   return (
     <Routes>
+      <Route
+        path="/"
+        element={
+          <PublicRoute>
+            <LandingPage />
+          </PublicRoute>
+        }
+      />
       <Route
         path="/login"
         element={
@@ -152,6 +163,26 @@ export function App() {
           <ProtectedRoute>
             <Layout>
               <AnalyticsPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/live"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <LiveCommandCenter />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/readiness"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <SkillGapAnalytics />
             </Layout>
           </ProtectedRoute>
         }

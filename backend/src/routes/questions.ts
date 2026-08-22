@@ -1,8 +1,11 @@
 import { Router } from "express";
 import { body, query } from "express-validator";
+import multer from "multer";
 import { validate } from "../middleware/validate";
 import { authenticate, requireRole } from "../middleware/auth";
 import * as questions from "../controllers/questions";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 const QUESTION_TYPES = ["mcq", "multi_select", "true_false", "fill_blank", "numerical", "subjective", "coding", "aptitude", "reasoning"];
 const MODERATION_STATUSES = ["draft", "pending", "approved", "rejected"];
@@ -33,6 +36,14 @@ questionsRouter.post("/", authenticate, validate([
   body("coding").optional().isObject(),
   body("status").optional().isString().isIn(["draft", "pending"]),
 ]), questions.createQuestion);
+
+questionsRouter.post(
+  "/bulk",
+  authenticate,
+  requireRole("admin", "teacher"),
+  upload.single("file"),
+  questions.bulkUploadQuestions
+);
 
 questionsRouter.get("/:id", authenticate, questions.getQuestion);
 

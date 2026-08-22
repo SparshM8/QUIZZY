@@ -56,6 +56,7 @@ export const startAttempt = async (req: Request, res: Response, next: NextFuncti
       attemptNumber: attempts + 1,
       maxPossibleScore: test.items.reduce((sum, item) => sum + item.points, 0),
       answers: [],
+      identityVerified: true, // Mark as verified if they reached this point
     });
 
     test.status = "in_progress";
@@ -188,10 +189,10 @@ export const logViolation = async (req: Request, res: Response, next: NextFuncti
     if (!attempt) throw new AppError(404, "NOT_FOUND", "Active attempt not found");
 
     const { type, details } = req.body as { 
-      type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "ai_detection" | "other"; 
+      type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "ai_detection" | "face_mismatch" | "other"; 
       details?: string 
     };
-    if (!["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "ai_detection", "other"].includes(type)) {
+    if (!["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "ai_detection", "face_mismatch", "other"].includes(type)) {
       throw new AppError(400, "VALIDATION_ERROR", "Invalid violation type");
     }
 

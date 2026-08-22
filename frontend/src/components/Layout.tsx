@@ -13,6 +13,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: "Questions", path: "/questions" },
     { name: "Assignments", path: "/assignments" },
     { name: "Analytics", path: "/analytics" },
+    { name: "Live", path: "/live" },
+    { name: "Readiness", path: "/readiness" },
     { name: "Notifications", path: "/notifications" },
   ];
 

@@ -20,6 +20,8 @@ export default function QuestionsPage() {
     },
   });
   const [loading, setLoading] = useState(true);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const loadQuestions = async () => {
     setLoading(true);
@@ -110,13 +112,70 @@ export default function QuestionsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Question Bank</h1>
           <p className="mt-1 text-sm text-gray-500 text-balance">Manage your assessment questions here.</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all"
-        >
-          {showForm ? "Cancel" : "New Question"}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowBulkUpload(!showBulkUpload)}
+            className="inline-flex items-center rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-all"
+          >
+            {showBulkUpload ? "Cancel Bulk" : "Bulk Upload"}
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all"
+          >
+            {showForm ? "Cancel" : "New Question"}
+          </button>
+        </div>
       </div>
+
+      {showBulkUpload && (
+        <div className="mb-8 overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/50 p-6">
+          <h2 className="text-lg font-semibold text-indigo-900 mb-2">Bulk Upload Questions</h2>
+          <p className="text-sm text-indigo-700 mb-6">Upload a CSV file containing questions. Download the <a href="#" className="underline font-bold">template</a> for the correct format.</p>
+          
+          <div className="flex items-center justify-center w-full">
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-indigo-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-indigo-50 transition-all">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <svg className="w-8 h-8 mb-4 text-indigo-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                </svg>
+                <p className="mb-2 text-sm text-indigo-600"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                <p className="text-xs text-indigo-500">CSV (MAX. 5MB)</p>
+              </div>
+              <input 
+                type="file" 
+                className="hidden" 
+                accept=".csv"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  
+                  setBulkUploading(true);
+                  try {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    await api.post("/api/questions/bulk", formData);
+                    alert("Questions uploaded successfully!");
+                    setShowBulkUpload(false);
+                    await loadQuestions();
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Failed to upload questions");
+                  } finally {
+                    setBulkUploading(false);
+                  }
+                }}
+              />
+            </label>
+          </div>
+          {bulkUploading && (
+            <div className="mt-4 flex items-center gap-2 text-indigo-600">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+              <span className="text-sm font-medium">Processing bulk upload...</span>
+            </div>
+          )}
+        </div>
+      )}
+
 
       {showForm && (
         <div className="mb-8 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
