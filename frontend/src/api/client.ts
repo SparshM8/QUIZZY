@@ -57,8 +57,27 @@ class ApiClient {
     return data as T;
   }
 
-  get<T>(path: string) {
-    return this.request<T>(path);
+  get<T>(path: string, options: RequestInit = {}) {
+    return this.request<T>(path, options);
+  }
+
+  async download(path: string, filename: string) {
+    const token = localStorage.getItem("quizzy.accessToken");
+    const headers = new Headers();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    const res = await fetch(`${this.baseUrl}${path}`, { headers });
+    if (!res.ok) throw new Error("Download failed");
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 
   post<T>(path: string, body?: unknown) {

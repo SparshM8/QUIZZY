@@ -23,6 +23,9 @@ export default function TakeTestPage() {
   const [violations, setViolations] = useState(0);
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const start = useCallback(async () => {
     if (!testId) return;
@@ -90,8 +93,9 @@ export default function TakeTestPage() {
     return () => {
       if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
       if (autosaveTimer.current) clearInterval(autosaveTimer.current);
+      if (stream) stream.getTracks().forEach(track => track.stop());
     };
-  }, [attemptId, navigate, testId]);
+  }, [attemptId, navigate, testId, stream]);
 
   // Proctoring: Tab switch detection
   useEffect(() => {
@@ -117,18 +121,60 @@ export default function TakeTestPage() {
       alert(`Warning: ${e.type === 'copy' ? 'Copying' : 'Pasting'} is disabled during the test. This event has been logged.`);
     };
 
+    const handleFullscreenChange = () => {
+      const isFull = !!document.fullscreenElement;
+      setIsFullscreen(isFull);
+      if (!isFull) {
+        api.post(`/api/tests/attempts/${attemptId}/violations`, {
+          type: "fullscreen_exit",
+          details: "User exited fullscreen mode",
+        }).then(() => setViolations(prev => prev + 1))
+        .catch(console.error);
+      }
+    };
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
     document.addEventListener("copy", handleCopyPaste);
     document.addEventListener("paste", handleCopyPaste);
     document.addEventListener("contextmenu", (e) => e.preventDefault());
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
 
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       document.removeEventListener("copy", handleCopyPaste);
       document.removeEventListener("paste", handleCopyPaste);
       document.removeEventListener("contextmenu", (e) => e.preventDefault());
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, [attemptId]);
+
+  // Webcam Monitoring
+  useEffect(() => {
+    if (!attemptId) return;
+
+    const startWebcam = async () => {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: true });
+        setStream(s);
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+        }
+      } catch (err) {
+        api.post(`/api/tests/attempts/${attemptId}/violations`, {
+          type: "webcam_violation",
+          details: "Webcam access denied or unavailable",
+        }).then(() => setViolations(prev => prev + 1))
+        .catch(console.error);
+        alert("Webcam access is required for this test. Please enable it to continue.");
+      }
+    };
+
+    startWebcam();
+  }, [attemptId]);
+
+  const enterFullscreen = () => {
+    document.documentElement.requestFullscreen().catch(console.error);
+  };
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -163,17 +209,40 @@ export default function TakeTestPage() {
   if (!attemptId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="rounded-lg border bg-white p-6 text-center shadow-sm">
+        <div className="rounded-lg border bg-white p-6 text-center shadow-sm max-w-md">
           <h1 className="mb-2 text-lg font-semibold">Ready to begin?</h1>
-          <p className="mb-4 text-sm text-gray-600">
-            The timer starts as soon as you begin. Your answers are auto-saved, and the test
-            auto-submits when time runs out.
-          </p>
+          <div className="mb-4 text-sm text-gray-600 text-left space-y-2">
+            <p>• The timer starts as soon as you begin.</p>
+            <p>• Your answers are auto-saved.</p>
+            <p>• <strong>Strict Proctoring Enabled:</strong></p>
+            <ul className="list-disc list-inside ml-2">
+              <li>Fullscreen mode is mandatory.</li>
+              <li>Webcam monitoring will be active.</li>
+              <li>Tab switching and copy-pasting are disabled.</li>
+            </ul>
+          </div>
           <button
             onClick={() => void start()}
-            className="rounded bg-indigo-600 px-6 py-2 font-medium text-white hover:bg-indigo-700"
+            className="rounded bg-indigo-600 px-6 py-2 font-medium text-white hover:bg-indigo-700 w-full"
           >
             Start Test
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isFullscreen) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-900 text-white">
+        <div className="text-center p-8">
+          <h2 className="text-2xl font-bold mb-4">Fullscreen Mode Required</h2>
+          <p className="mb-6">This test requires fullscreen mode to ensure academic integrity.</p>
+          <button
+            onClick={enterFullscreen}
+            className="bg-indigo-600 hover:bg-indigo-700 px-8 py-3 rounded-lg font-bold transition-colors"
+          >
+            Enter Fullscreen & Continue
           </button>
         </div>
       </div>
@@ -188,6 +257,15 @@ export default function TakeTestPage() {
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold">Test Attempt</h1>
           <div className="flex items-center gap-3">
+            <div className="relative h-12 w-16 overflow-hidden rounded bg-black border border-gray-300">
+              <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                className="h-full w-full object-cover mirror"
+              />
+            </div>
             {violations > 0 && (
               <span className="rounded bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
                 Violations: {violations}

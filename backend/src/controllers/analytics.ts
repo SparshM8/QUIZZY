@@ -68,4 +68,51 @@ export const getTestLeaderboard = async (req: Request, res: Response, next: Next
   } catch (err) { next(err); }
 };
 
+export const exportTestReport = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as unknown as AuthenticatedRequest;
+    const testId = assertObjectId(req.params.testId, "testId");
+    const format = req.query.format === "excel" ? "excel" : "csv"; // Default to CSV for simplicity, user can open in Excel
+    
+    const test = await Test.findById(testId).select("title createdBy");
+    if (!test) throw new AppError(404, "NOT_FOUND", "Test not found");
+    if (authReq.user!.role !== "admin" && String(test.createdBy) !== authReq.user!.sub) {
+      throw new AppError(403, "FORBIDDEN", "Only the test creator or an admin can export reports");
+    }
+
+    const attempts = await Attempt.find({ testId, status: { $in: ["submitted", "auto_submitted"] } })
+      .sort({ totalScore: -1, submittedAt: 1 })
+      .lean();
+
+    const users = await User.find({ _id: { $in: attempts.map((a) => a.studentId) } }).select("name email").lean();
+    const usersById = new Map(users.map((u) => [String(u._id), u]));
+
+    const csvRows = [
+      ["Rank", "Student Name", "Email", "Score (%)", "Total Points", "Max Points", "Attempt #", "Violations", "Submitted At"]
+    ];
+
+    attempts.forEach((row, index) => {
+      const user = usersById.get(String(row.studentId));
+      const percentage = Math.round(((row.totalScore ?? 0) / Math.max(row.maxPossibleScore, 1)) * 100);
+      csvRows.push([
+        String(index + 1),
+        user?.name || "Unknown",
+        user?.email || "N/A",
+        `${percentage}%`,
+        String(row.totalScore || 0),
+        String(row.maxPossibleScore),
+        String(row.attemptNumber),
+        String(row.violations?.length || 0),
+        row.submittedAt ? row.submittedAt.toISOString() : "N/A"
+      ]);
+    });
+
+    const csvContent = csvRows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename=test_report_${testId}.csv`);
+    res.status(200).send(csvContent);
+  } catch (err) { next(err); }
+};
+
 

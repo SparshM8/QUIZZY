@@ -37,11 +37,33 @@ export default function AnalyticsPage() {
   const totalDistribution = useMemo(() => overview?.distribution.reduce((sum, item) => sum + item.count, 0) ?? 0, [overview]);
   const maxBucket = Math.max(...(overview?.distribution.map((item) => item.count) ?? [1]), 1);
 
+  const handleExport = async () => {
+    if (!selectedTest) return;
+    try {
+      await api.download(`/api/analytics/tests/${selectedTest}/export`, `report_${selectedTest}.csv`);
+    } catch (err) {
+      alert("Failed to export report.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div><p className="text-sm font-semibold uppercase tracking-wider text-indigo-600">Insights</p><h1 className="mt-1 text-3xl font-bold text-slate-900">Assessment analytics</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Understand completion, score distribution, and learner progress from one focused workspace.</p></div>
-        <label className="text-sm font-medium text-slate-700">Assessment<select value={selectedTest} onChange={(event) => setSelectedTest(event.target.value)} className="mt-1 block min-w-64 rounded-md border border-slate-300 bg-white px-3 py-2"><option value="">Select an assessment</option>{tests.map((test) => <option key={test.id} value={test.id}>{test.title}</option>)}</select></label>
+        <div className="flex flex-col md:flex-row items-end gap-3">
+          {selectedTest && (
+            <button
+              onClick={handleExport}
+              className="mb-0.5 rounded-md bg-white border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export Report (CSV)
+            </button>
+          )}
+          <label className="text-sm font-medium text-slate-700">Assessment<select value={selectedTest} onChange={(event) => setSelectedTest(event.target.value)} className="mt-1 block min-w-64 rounded-md border border-slate-300 bg-white px-3 py-2"><option value="">Select an assessment</option>{tests.map((test) => <option key={test.id} value={test.id}>{test.title}</option>)}</select></label>
+        </div>
       </div>
       {error && <div className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
       {loading && <div className="rounded-lg border bg-white p-8 text-center text-sm text-slate-500">Loading analytics…</div>}
