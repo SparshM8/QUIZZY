@@ -29,11 +29,11 @@ export function LoginPage() {
       <div className="w-full max-w-md space-y-8 rounded-xl border border-slate-200 bg-white p-8 shadow-lg">
         <div>
           <h1 className="text-center text-3xl font-extrabold tracking-tight text-primary-600">
-            Quizzy
+            Quizzy Placement Pro
           </h1>
-          <p className="mt-2 text-center text-sm text-slate-600">
-            Sign in to your assessment platform
-          </p>
+        <p className="mt-2 text-center text-sm text-slate-600">
+          Sign in to your placement preparation platform
+        </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="-space-y-px rounded-md shadow-sm">

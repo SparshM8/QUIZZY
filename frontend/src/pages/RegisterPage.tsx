@@ -31,7 +31,7 @@ export function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-md rounded-lg border bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-primary-700">Create account</h1>
-        <p className="mt-1 text-sm text-slate-500">Join the Quizzy platform</p>
+        <p className="mt-1 text-sm text-slate-500">Join Quizzy Placement Pro</p>
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
             <label className="mb-1 block text-sm font-medium" htmlFor="name">

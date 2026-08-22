@@ -13,7 +13,9 @@ export type QuestionType =
   | "fill_blank"
   | "numerical"
   | "subjective"
-  | "coding";
+  | "coding"
+  | "aptitude"
+  | "reasoning";
 
 export type ModerationStatus = "draft" | "pending" | "approved" | "rejected";
 
@@ -86,7 +88,7 @@ const questionSchema = new Schema<IQuestion>(
     tags: [{ type: String, maxlength: 50 }],
     type: {
       type: String,
-      enum: ["mcq", "multi_select", "true_false", "fill_blank", "numerical", "subjective", "coding"],
+      enum: ["mcq", "multi_select", "true_false", "fill_blank", "numerical", "subjective", "coding", "aptitude", "reasoning"],
       required: true,
     },
     points: { type: Number, required: true, min: 1, max: 1000 },

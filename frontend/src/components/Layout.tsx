@@ -22,7 +22,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="flex items-center gap-2">
-              <span className="text-2xl font-bold tracking-tight text-primary-600">Quizzy</span>
+              <span className="text-2xl font-bold tracking-tight text-primary-600">Quizzy Placement Pro</span>
               {session?.user?.role && (
                 <span className="hidden rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary-700 sm:inline-block">
                   {session.user.role}
@@ -116,7 +116,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </header>
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
       <footer className="border-t py-4 text-center text-xs text-slate-400">
-        Quizzy · Assessment Platform
+        Quizzy Placement Pro · Assessment & Placement Preparation Platform
       </footer>
     </div>
   );

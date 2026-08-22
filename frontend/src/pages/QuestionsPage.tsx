@@ -57,7 +57,7 @@ export default function QuestionsPage() {
         tags: [],
       };
 
-      if (form.type === "mcq") {
+      if (form.type === "mcq" || form.type === "aptitude" || form.type === "reasoning") {
         const validChoices = form.options.choices.filter(c => c.text.trim() !== "");
         if (validChoices.length < 2) {
           alert("Please provide at least 2 choices for MCQ");
@@ -167,6 +167,9 @@ export default function QuestionsPage() {
                     onChange={(e) => setForm({ ...form, type: e.target.value })}
                   >
                     <option value="mcq">Multiple Choice (MCQ)</option>
+                    <option value="aptitude">Aptitude</option>
+                    <option value="reasoning">Reasoning</option>
+                    <option value="coding">Coding Challenge</option>
                     <option value="subjective">Subjective / Text</option>
                   </select>
                 </div>
@@ -185,7 +188,7 @@ export default function QuestionsPage() {
                 </div>
               </div>
 
-              {form.type === "mcq" && (
+              {(form.type === "mcq" || form.type === "aptitude" || form.type === "reasoning") && (
                 <div className="space-y-4 rounded-lg bg-gray-50 p-4">
                   <label className="block text-sm font-semibold text-gray-900">Choices (select the correct one)</label>
                   <div className="space-y-3">

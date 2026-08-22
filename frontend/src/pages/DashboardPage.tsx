@@ -8,16 +8,20 @@ const ROLE_SUMMARIES: Record<string, { title: string; items: string[] }> = {
     items: ["Manage users and roles", "Configure platform settings", "Review moderation queue"],
   },
   teacher: {
-    title: "Teaching workspace",
+    title: "Placement Coordinator Workspace",
     items: [
-      "Build quizzes, tests and coding challenges",
-      "Create assignments with deadlines",
-      "Review results and analytics",
+      "Build aptitude, reasoning, and technical assessments",
+      "Create placement preparation modules",
+      "Review student performance and analytics",
     ],
   },
   student: {
-    title: "Your assessments",
-    items: ["Upcoming quizzes and exams", "Active assignments", "Past results and certificates"],
+    title: "Your Placement Journey",
+    items: [
+      "Upcoming aptitude and reasoning tests",
+      "Active placement preparation modules",
+      "Performance analytics and skill reports",
+    ],
   },
 };
 
