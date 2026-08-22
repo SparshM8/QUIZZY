@@ -38,7 +38,8 @@ export const getTestOverview = async (req: Request, res: Response, next: NextFun
     }
     const durationSeconds = attempts.filter((attempt) => attempt.submittedAt).map((attempt) => Math.max(0, (attempt.submittedAt!.getTime() - attempt.startedAt.getTime()) / 1000));
     const averageDurationMinutes = durationSeconds.length ? Math.round((durationSeconds.reduce((sum, value) => sum + value, 0) / durationSeconds.length / 60) * 10) / 10 : 0;
-    res.json({ success: true, data: { test: { id: test.id, title: test.title, status: test.status }, enrollmentCount: test.enrolledStudents.length, submittedCount: attempts.length, completionRate: test.enrolledStudents.length ? Math.min(100, Math.round((submittedStudents.size / test.enrolledStudents.length) * 100)) : 0, averageScore: average, highestScore: scores.length ? Math.max(...scores) : 0, averageDurationMinutes, distribution } });
+    const totalViolations = attempts.reduce((sum, attempt) => sum + (attempt.violations?.length || 0), 0);
+    res.json({ success: true, data: { test: { id: test.id, title: test.title, status: test.status }, enrollmentCount: test.enrolledStudents.length, submittedCount: attempts.length, completionRate: test.enrolledStudents.length ? Math.min(100, Math.round((submittedStudents.size / test.enrolledStudents.length) * 100)) : 0, averageScore: average, highestScore: scores.length ? Math.max(...scores) : 0, averageDurationMinutes, distribution, totalViolations } });
   } catch (err) { next(err); }
 };
 
@@ -62,7 +63,7 @@ export const getTestLeaderboard = async (req: Request, res: Response, next: Next
     const users = await User.find({ _id: { $in: rows.map((row) => row.studentId) } }).select("name email").lean();
     const usersById = new Map(users.map((user) => [String(user._id), user]));
     const percentages = rows.map((row) => Math.round(((row.totalScore ?? 0) / Math.max(row.maxPossibleScore, 1)) * 100));
-    const data = rows.map((row, index) => ({ rank: index + 1, student: usersById.get(String(row.studentId)) ?? { name: "Student", email: "" }, score: percentages[index], submittedAt: row.submittedAt, attemptNumber: row.attemptNumber, percentile: percentileFor(percentages[index], percentages) }));
+    const data = rows.map((row, index) => ({ rank: index + 1, student: usersById.get(String(row.studentId)) ?? { name: "Student", email: "" }, score: percentages[index], submittedAt: row.submittedAt, attemptNumber: row.attemptNumber, percentile: percentileFor(percentages[index], percentages), violationCount: row.violations?.length || 0 }));
     res.json({ success: true, data: { test: { id: test.id, title: test.title }, rows: data } });
   } catch (err) { next(err); }
 };

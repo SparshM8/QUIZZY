@@ -24,6 +24,7 @@ import { codingRouter } from "./routes/coding";
 import { assignmentsRouter } from "./routes/assignments";
 
 import { analyticsRouter } from "./routes/analytics";
+import { startJudgeWorker } from "./judge/worker";
 
 // Namespace import is used deliberately: the Vercel function bundler
 // rewrites the compiled `__importDefault` helper in a way that leaves the
@@ -123,6 +124,7 @@ app.use(errorHandler);
 export async function startServer(): Promise<void> {
   validateProductionConfig();
   await connectDatabase();
+  void startJudgeWorker();
   const server = app.listen(env.port, () => {
     logger.info(`Quizzy API listening on :${env.port}`, { env: env.nodeEnv, version: env.appVersion });
   });

@@ -30,6 +30,11 @@ export interface AttemptDocument extends Document {
   maxPossibleScore: number;
   durationMinutes: number;
   attemptNumber: number;
+  violations: Array<{
+    type: "tab_switch" | "copy_paste" | "other";
+    timestamp: Date;
+    details?: string;
+  }>;
 }
 
 const attemptSchema = new Schema<AttemptDocument>(
@@ -55,6 +60,13 @@ const attemptSchema = new Schema<AttemptDocument>(
     maxPossibleScore: { type: Number, required: true },
     durationMinutes: { type: Number, required: true },
     attemptNumber: { type: Number, default: 1 },
+    violations: [
+      {
+        type: { type: String, enum: ["tab_switch", "copy_paste", "other"], required: true },
+        timestamp: { type: Date, default: Date.now },
+        details: { type: String },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -4,7 +4,7 @@ import { validate } from "../middleware/validate";
 import { authenticate, requireRole } from "../middleware/auth";
 import * as questions from "../controllers/questions";
 
-const QUESTION_TYPES = ["mcq", "multi_select", "true_false", "fill_blank", "numerical", "subjective", "coding"];
+const QUESTION_TYPES = ["mcq", "multi_select", "true_false", "fill_blank", "numerical", "subjective", "coding", "aptitude", "reasoning"];
 const MODERATION_STATUSES = ["draft", "pending", "approved", "rejected"];
 
 export const questionsRouter = Router();

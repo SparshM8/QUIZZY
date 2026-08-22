@@ -93,8 +93,7 @@ export function RegisterPage() {
               className="w-full rounded-md border px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
               <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-              <option value="admin">Administrator</option>
+              <option value="teacher">Teacher / Faculty</option>
             </select>
           </div>
           {error && (

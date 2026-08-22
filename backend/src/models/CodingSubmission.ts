@@ -19,6 +19,7 @@ export type Verdict =
 export interface CodingSubmissionDocument extends Document {
   questionId: Types.ObjectId;
   authorId: Types.ObjectId;
+  attemptId?: Types.ObjectId;
   language: string;
   sourceCode: string;
   verdict: Verdict;
@@ -32,6 +33,7 @@ const codingSubmissionSchema = new Schema<CodingSubmissionDocument>(
   {
     questionId: { type: Schema.Types.ObjectId, ref: "Question", required: true, index: true },
     authorId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    attemptId: { type: Schema.Types.ObjectId, ref: "Attempt", index: true },
     language: { type: String, required: true, maxlength: 20 },
     sourceCode: { type: String, required: true },
     verdict: {

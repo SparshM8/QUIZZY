@@ -177,6 +177,34 @@ export const heartbeat = async (req: Request, res: Response, next: NextFunction)
   }
 };
 
+export const logViolation = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as unknown as AuthenticatedRequest;
+    const attempt = await Attempt.findOne({
+      _id: req.params.attemptId,
+      studentId: new Types.ObjectId(authReq.user!.sub),
+      status: "in_progress",
+    });
+    if (!attempt) throw new AppError(404, "NOT_FOUND", "Active attempt not found");
+
+    const { type, details } = req.body as { type: "tab_switch" | "copy_paste" | "other"; details?: string };
+    if (!["tab_switch", "copy_paste", "other"].includes(type)) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid violation type");
+    }
+
+    attempt.violations.push({
+      type,
+      timestamp: new Date(),
+      details,
+    });
+    await attempt.save();
+
+    res.json({ success: true, data: { logged: true, violationCount: attempt.violations.length } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 async function submitAttemptInternal(
   attempt: InstanceType<typeof Attempt>,
   test: InstanceType<typeof Test>,

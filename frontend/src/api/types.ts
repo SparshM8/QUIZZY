@@ -49,3 +49,23 @@ export interface NotificationDto {
   read: boolean;
   createdAt: string;
 }
+
+export interface AttemptAnswer {
+  questionId: string;
+  answer?: unknown;
+  score?: number;
+  graded: boolean;
+}
+
+export interface AttemptDto {
+  id: string;
+  testId: string;
+  studentId: string;
+  status: string;
+  startedAt: string;
+  submittedAt?: string;
+  answers: AttemptAnswer[];
+  totalScore?: number;
+  maxPossibleScore: number;
+  violations?: { type: string; timestamp: string; context?: string }[];
+}

@@ -1,12 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
-
-interface AttemptAnswer {
-  questionId: string;
-  order: number;
-  answer: unknown;
-}
+import type { AttemptDto, AttemptAnswer } from "../api/types";
 
 interface TestQuestion {
   questionId: string;
@@ -25,6 +20,7 @@ export default function TakeTestPage() {
   const [remainingMs, setRemainingMs] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [violations, setViolations] = useState(0);
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const autosaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -51,10 +47,11 @@ export default function TakeTestPage() {
     const load = async () => {
       const res = await api.get<{
         success: boolean;
-        data: { attempt: { id: string; answers: AttemptAnswer[] }; remainingMs: number; questions: TestQuestion[] };
+        data: { attempt: AttemptDto; remainingMs: number; questions: TestQuestion[] };
       }>(`/api/tests/attempts/${attemptId}/state`);
       setQuestions(res.data.questions);
       setRemainingMs(res.data.remainingMs);
+      setViolations(res.data.attempt.violations?.length || 0);
       const map: Record<string, unknown> = {};
       for (const a of res.data.attempt.answers) {
         map[a.questionId] = a.answer;
@@ -95,6 +92,43 @@ export default function TakeTestPage() {
       if (autosaveTimer.current) clearInterval(autosaveTimer.current);
     };
   }, [attemptId, navigate, testId]);
+
+  // Proctoring: Tab switch detection
+  useEffect(() => {
+    if (!attemptId) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        api.post(`/api/tests/attempts/${attemptId}/violations`, {
+          type: "tab_switch",
+          details: "User switched away from the test tab",
+        }).then(() => setViolations(prev => prev + 1))
+        .catch(console.error);
+      }
+    };
+
+    const handleCopyPaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      api.post(`/api/tests/attempts/${attemptId}/violations`, {
+        type: "copy_paste",
+        details: `User attempted to ${e.type}`,
+      }).then(() => setViolations(prev => prev + 1))
+      .catch(console.error);
+      alert(`Warning: ${e.type === 'copy' ? 'Copying' : 'Pasting'} is disabled during the test. This event has been logged.`);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("copy", handleCopyPaste);
+    document.addEventListener("paste", handleCopyPaste);
+    document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("copy", handleCopyPaste);
+      document.removeEventListener("paste", handleCopyPaste);
+      document.removeEventListener("contextmenu", (e) => e.preventDefault());
+    };
+  }, [attemptId]);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -153,9 +187,16 @@ export default function TakeTestPage() {
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-lg font-bold">Test Attempt</h1>
-          <span className="rounded bg-red-100 px-3 py-1 font-mono text-sm font-medium text-red-700">
-            {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-          </span>
+          <div className="flex items-center gap-3">
+            {violations > 0 && (
+              <span className="rounded bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
+                Violations: {violations}
+              </span>
+            )}
+            <span className="rounded bg-red-100 px-3 py-1 font-mono text-sm font-medium text-red-700">
+              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+            </span>
+          </div>
         </div>
 
         <div className="mb-4 flex flex-wrap gap-1.5">
@@ -233,6 +274,31 @@ function AnswerInput({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
+  if (type === "coding") {
+    return (
+      <div className="space-y-4">
+        <textarea
+          className="w-full rounded border font-mono text-sm px-3 py-2"
+          value={typeof value === "string" ? value : ""}
+          onChange={(e) => onChange(e.target.value)}
+          rows={12}
+          placeholder="// Write your code here..."
+        />
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              // Trigger code submission logic here if needed
+              alert("Code saved. It will be automatically graded upon submission.");
+            }}
+            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            Save Code
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (type === "mcq" || type === "true_false" || type === "aptitude" || type === "reasoning") {
     const choices = (question.options as { choices: { id: string; text: string }[] })?.choices ?? [];
     return (

@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { Types } from "mongoose";
 import { CodingSubmission } from "../models/CodingSubmission";
 import { Question } from "../models/Question";
 import { AppError } from "../middleware/errorHandler";
@@ -12,8 +13,9 @@ const MAX_SOURCE_KB = 256;
 export const submitCode = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authReq = req as unknown as AuthenticatedRequest;
-    const { questionId, language, sourceCode } = req.body as {
+    const { questionId, attemptId, language, sourceCode } = req.body as {
       questionId?: string;
+      attemptId?: string;
       language?: string;
       sourceCode?: string;
     };
@@ -33,6 +35,7 @@ export const submitCode = async (req: Request, res: Response, next: NextFunction
     const submission = await CodingSubmission.create({
       questionId: question._id,
       authorId: authReq.user!.sub,
+      attemptId: attemptId ? new Types.ObjectId(attemptId) : undefined,
       language,
       sourceCode,
       verdict: "queued",

@@ -74,6 +74,8 @@ testsRouter.patch(
 
 testsRouter.get("/attempts/:attemptId/heartbeat", authenticate, requireRole("student"), attempts.heartbeat);
 
+testsRouter.post("/attempts/:attemptId/violations", authenticate, requireRole("student"), requireVerified, attempts.logViolation);
+
 testsRouter.post("/attempts/:attemptId/submit", authenticate, requireRole("student"), requireVerified, attempts.submitAttempt);
 
 testsRouter.get("/attempts/:attemptId/result", authenticate, attempts.getAttemptResult);
