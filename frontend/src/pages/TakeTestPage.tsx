@@ -103,21 +103,37 @@ export default function TakeTestPage() {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        api.post(`/api/tests/attempts/${attemptId}/violations`, {
-          type: "tab_switch",
-          details: "User switched away from the test tab",
-        }).then(() => setViolations(prev => prev + 1))
-        .catch(console.error);
+        api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
+          `/api/tests/attempts/${attemptId}/violations`, 
+          {
+            type: "tab_switch",
+            details: "User switched away from the test tab",
+          }
+        ).then((res) => {
+          setViolations(res.data.violationCount);
+          if (res.data.autoSubmitted) {
+            alert("Test auto-submitted due to excessive proctoring violations.");
+            navigate(`/tests/${testId}/attempts/${attemptId}/result`);
+          }
+        }).catch(console.error);
       }
     };
 
     const handleCopyPaste = (e: ClipboardEvent) => {
       e.preventDefault();
-      api.post(`/api/tests/attempts/${attemptId}/violations`, {
-        type: "copy_paste",
-        details: `User attempted to ${e.type}`,
-      }).then(() => setViolations(prev => prev + 1))
-      .catch(console.error);
+      api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
+        `/api/tests/attempts/${attemptId}/violations`, 
+        {
+          type: "copy_paste",
+          details: `User attempted to ${e.type}`,
+        }
+      ).then((res) => {
+        setViolations(res.data.violationCount);
+        if (res.data.autoSubmitted) {
+          alert("Test auto-submitted due to excessive proctoring violations.");
+          navigate(`/tests/${testId}/attempts/${attemptId}/result`);
+        }
+      }).catch(console.error);
       alert(`Warning: ${e.type === 'copy' ? 'Copying' : 'Pasting'} is disabled during the test. This event has been logged.`);
     };
 
@@ -125,11 +141,19 @@ export default function TakeTestPage() {
       const isFull = !!document.fullscreenElement;
       setIsFullscreen(isFull);
       if (!isFull) {
-        api.post(`/api/tests/attempts/${attemptId}/violations`, {
-          type: "fullscreen_exit",
-          details: "User exited fullscreen mode",
-        }).then(() => setViolations(prev => prev + 1))
-        .catch(console.error);
+        api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
+          `/api/tests/attempts/${attemptId}/violations`, 
+          {
+            type: "fullscreen_exit",
+            details: "User exited fullscreen mode",
+          }
+        ).then((res) => {
+          setViolations(res.data.violationCount);
+          if (res.data.autoSubmitted) {
+            alert("Test auto-submitted due to excessive proctoring violations.");
+            navigate(`/tests/${testId}/attempts/${attemptId}/result`);
+          }
+        }).catch(console.error);
       }
     };
 
@@ -160,11 +184,19 @@ export default function TakeTestPage() {
           videoRef.current.srcObject = s;
         }
       } catch (err) {
-        api.post(`/api/tests/attempts/${attemptId}/violations`, {
-          type: "webcam_violation",
-          details: "Webcam access denied or unavailable",
-        }).then(() => setViolations(prev => prev + 1))
-        .catch(console.error);
+        api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
+          `/api/tests/attempts/${attemptId}/violations`, 
+          {
+            type: "webcam_violation",
+            details: "Webcam access denied or unavailable",
+          }
+        ).then((res) => {
+          setViolations(res.data.violationCount);
+          if (res.data.autoSubmitted) {
+            alert("Test auto-submitted due to excessive proctoring violations.");
+            navigate(`/tests/${testId}/attempts/${attemptId}/result`);
+          }
+        }).catch(console.error);
         alert("Webcam access is required for this test. Please enable it to continue.");
       }
     };

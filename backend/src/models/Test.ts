@@ -26,6 +26,13 @@ export interface TestDocument extends Document {
   scrambleOptions: boolean;
   showResultsImmediately: boolean;
   maxAttempts: number;
+  proctoringConfig: {
+    enableFullscreen: boolean;
+    enableWebcam: boolean;
+    enableTabSwitchDetection: boolean;
+    enableCopyPastePrevention: boolean;
+    violationThreshold: number; // 0 for no limit, >0 for auto-submission
+  };
   items: TestItem[];
   enrolledStudents: { studentId: Types.ObjectId; status: EnrollmentStatus }[];
   createdAt: Date;
@@ -48,6 +55,13 @@ const testSchema = new Schema<TestDocument>(
     scrambleOptions: { type: Boolean, default: false },
     showResultsImmediately: { type: Boolean, default: true },
     maxAttempts: { type: Number, default: 1, min: 1, max: 10 },
+    proctoringConfig: {
+      enableFullscreen: { type: Boolean, default: true },
+      enableWebcam: { type: Boolean, default: true },
+      enableTabSwitchDetection: { type: Boolean, default: true },
+      enableCopyPastePrevention: { type: Boolean, default: true },
+      violationThreshold: { type: Number, default: 0 },
+    },
     items: [
       {
         questionId: { type: Schema.Types.ObjectId, ref: "Question", required: true },

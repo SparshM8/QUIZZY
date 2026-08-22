@@ -187,8 +187,11 @@ export const logViolation = async (req: Request, res: Response, next: NextFuncti
     });
     if (!attempt) throw new AppError(404, "NOT_FOUND", "Active attempt not found");
 
-    const { type, details } = req.body as { type: "tab_switch" | "copy_paste" | "other"; details?: string };
-    if (!["tab_switch", "copy_paste", "other"].includes(type)) {
+    const { type, details } = req.body as { 
+      type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "other"; 
+      details?: string 
+    };
+    if (!["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "other"].includes(type)) {
       throw new AppError(400, "VALIDATION_ERROR", "Invalid violation type");
     }
 
@@ -197,6 +200,23 @@ export const logViolation = async (req: Request, res: Response, next: NextFuncti
       timestamp: new Date(),
       details,
     });
+    
+    const test = await Test.findById(attempt.testId);
+    if (test && test.proctoringConfig?.violationThreshold > 0) {
+      if (attempt.violations.length >= test.proctoringConfig.violationThreshold) {
+        await submitAttemptInternal(attempt, test, true);
+        res.json({ 
+          success: true, 
+          data: { 
+            logged: true, 
+            violationCount: attempt.violations.length,
+            autoSubmitted: true 
+          } 
+        });
+        return;
+      }
+    }
+    
     await attempt.save();
 
     res.json({ success: true, data: { logged: true, violationCount: attempt.violations.length } });
