@@ -47,6 +47,29 @@ export const toggleUserController = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+export const updateUserController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    const target = await User.findById(req.params.id);
+    if (!target) throw new AppError(404, "USER_NOT_FOUND", "User not found");
+    
+    if (req.body.role && req.user!.role !== "admin") {
+      throw new AppError(403, "FORBIDDEN", "Only administrators can change user roles");
+    }
+
+    if (req.body.name !== undefined) target.name = req.body.name;
+    if (req.body.role !== undefined) target.role = req.body.role;
+    if (req.body.isEmailVerified !== undefined) target.isEmailVerified = !!req.body.isEmailVerified;
+    if (req.body.isActive !== undefined) target.isActive = !!req.body.isActive;
+
+    await target.save();
+    await audit(target, "USER_UPDATED", req.user!.sub, { updates: Object.keys(req.body) });
+    
+    res.json({ success: true, data: toSafeObject(target) });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const deleteUserController = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
     const target = await User.findById(req.params.id);
