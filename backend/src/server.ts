@@ -24,6 +24,7 @@ import { codingRouter } from "./routes/coding";
 import { assignmentsRouter } from "./routes/assignments";
 
 import { analyticsRouter } from "./routes/analytics";
+import { aiRouter } from "./routes/ai";
 import { startJudgeWorker } from "./judge/worker";
 
 // Namespace import is used deliberately: the Vercel function bundler
@@ -68,20 +69,23 @@ const clientIpKey = (req: expressNs.Request) => {
   return req.socket?.remoteAddress ?? req.ip ?? "unknown";
 };
 
-const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100, standardHeaders: true, legacyHeaders: false, keyGenerator: clientIpKey });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false, keyGenerator: clientIpKey });
+// Expert Tuning: Increased limits for high-stakes placement drives (5,000+ students)
+const globalLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false, keyGenerator: clientIpKey });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 50, standardHeaders: true, legacyHeaders: false, keyGenerator: clientIpKey });
+const examLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 2000, standardHeaders: true, legacyHeaders: false, keyGenerator: clientIpKey });
 
 app.use("/api/health", healthRouter);
 app.use("/api/auth", authLimiter, authRouter);
 app.use("/api/me", meRouter);
 app.use("/api/users", globalLimiter, usersRouter);
 app.use("/api/questions", globalLimiter, questionsRouter);
-app.use("/api/tests", globalLimiter, testsRouter);
+app.use("/api/tests", examLimiter, testsRouter); // Increased limit for exam operations
 app.use("/api/notifications", globalLimiter, notificationsRouter);
-app.use("/api/coding", globalLimiter, codingRouter);
+app.use("/api/coding", examLimiter, codingRouter); // Increased limit for coding submissions
 app.use("/api/assignments", globalLimiter, assignmentsRouter);
 
 app.use("/api/analytics", globalLimiter, analyticsRouter);
+app.use("/api/ai", globalLimiter, aiRouter);
 
 // The same deployment also serves the built React frontend (copied into
 // `backend/public` by the `vercel:function-build` script), so this Express

@@ -17,6 +17,8 @@ import AssignmentDetailPage from "./pages/AssignmentDetailPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import LiveCommandCenter from "./pages/LiveCommandCenter";
 import SkillGapAnalytics from "./pages/SkillGapAnalytics";
+import MockInterviewPage from "./pages/MockInterviewPage";
+import CohortAnalyticsPage from "./pages/CohortAnalyticsPage";
 import { useAuth } from "./context/auth";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -183,6 +185,26 @@ export function App() {
           <ProtectedRoute>
             <Layout>
               <SkillGapAnalytics />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/interview"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <MockInterviewPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cohorts"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CohortAnalyticsPage />
             </Layout>
           </ProtectedRoute>
         }

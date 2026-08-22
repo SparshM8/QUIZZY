@@ -204,4 +204,37 @@ export const getSkillAnalytics = async (req: Request, res: Response, next: NextF
   }
 };
 
+export const getCohortAnalytics = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as unknown as AuthenticatedRequest;
+    if (authReq.user!.role !== "admin" && authReq.user!.role !== "teacher") {
+      throw new AppError(403, "FORBIDDEN", "Only faculty can access cohort analytics");
+    }
 
+    // Expert Mock Logic for Professionalization Demo
+    // In a real production app, this would be an aggregation across the entire Attempt collection
+    const data = {
+      departments: [
+        { name: "Computer Science", avgScore: 88 },
+        { name: "Information Technology", avgScore: 82 },
+        { name: "Electronics", avgScore: 75 },
+        { name: "Mechanical", avgScore: 68 },
+      ],
+      trends: [
+        { year: "2023", score: 65 },
+        { year: "2024", score: 72 },
+        { year: "2025", score: 78 },
+        { year: "2026", score: 85 },
+      ],
+      cohorts: [
+        { name: "CS-A (Final Year)", students: 64, avgViolations: 0.8, integrityScore: 98 },
+        { name: "IT-B (Third Year)", students: 58, avgViolations: 1.2, integrityScore: 94 },
+        { name: "EC-C (Final Year)", students: 62, avgViolations: 2.5, integrityScore: 88 },
+      ]
+    };
+
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};

@@ -9,4 +9,5 @@ analyticsRouter.get("/tests/:testId/leaderboard", requireRole("student", "teache
 analyticsRouter.get("/tests/:testId/export", requireRole("teacher", "admin"), analytics.exportTestReport);
 analyticsRouter.get("/live", requireRole("teacher", "admin"), analytics.getLiveStatus);
 analyticsRouter.get("/skills", requireRole("student"), analytics.getSkillAnalytics);
+analyticsRouter.get("/cohorts", requireRole("teacher", "admin"), analytics.getCohortAnalytics);
 

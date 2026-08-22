@@ -124,24 +124,40 @@ export const saveAnswers = async (req: Request, res: Response, next: NextFunctio
     }
 
     const existingMap = new Map(attempt.answers.map((a) => [String(a.questionId), a]));
+    let hasChanges = false;
+    
     for (const incoming of answers) {
       if (!incoming.questionId || !Types.ObjectId.isValid(incoming.questionId)) continue;
-      const item = (await Test.findById(attempt.testId))?.items.find(
-        (i) => String(i.questionId) === incoming.questionId
-      );
-      if (!item) continue;
-      existingMap.set(incoming.questionId, {
-        questionId: new Types.ObjectId(incoming.questionId),
-        order: item.order,
-        answer: incoming.answer,
-        maxScore: item.points,
-      });
+      
+      const existing = existingMap.get(incoming.questionId);
+      if (existing) {
+        // Only update if the answer has actually changed to reduce DB write pressure
+        if (JSON.stringify(existing.answer) !== JSON.stringify(incoming.answer)) {
+          existing.answer = incoming.answer;
+          hasChanges = true;
+        }
+      } else {
+        const item = (await Test.findById(attempt.testId))?.items.find(
+          (i) => String(i.questionId) === incoming.questionId
+        );
+        if (!item) continue;
+        existingMap.set(incoming.questionId, {
+          questionId: new Types.ObjectId(incoming.questionId),
+          order: item.order,
+          answer: incoming.answer,
+          maxScore: item.points,
+        });
+        hasChanges = true;
+      }
     }
-    attempt.answers = Array.from(existingMap.values());
-    attempt.lastSavedAt = new Date();
-    await attempt.save();
+    
+    if (hasChanges) {
+      attempt.answers = Array.from(existingMap.values());
+      attempt.lastSavedAt = new Date();
+      await attempt.save();
+    }
 
-    res.json({ success: true, data: { saved: true, answerCount: attempt.answers.length } });
+    res.json({ success: true, data: { saved: true, updated: hasChanges, answerCount: attempt.answers.length } });
   } catch (err) {
     next(err);
   }

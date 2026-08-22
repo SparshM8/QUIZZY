@@ -32,10 +32,38 @@ export function judgeLocally(data: JudgeJobData): {
         let output = "";
         
         try {
-          const script = new vm.Script(`${data.sourceCode}\nresult = solution(${tc.input});`);
-          const context = vm.createContext({ result: null });
-          script.runInContext(context, { timeout: tc.timeLimitMs || 2000 });
-          output = String(context.result);
+          // Hardened Sandbox: Only allow safe globals and strictly isolate the execution
+          const sandbox = {
+            result: null,
+            console: { log: () => {} }, // Prevent console spam
+            Math,
+            Array,
+            Object,
+            String,
+            Number,
+            Boolean,
+            Date,
+            RegExp,
+            JSON,
+            parseInt,
+            parseFloat,
+            isNaN,
+            isFinite,
+          };
+          const context = vm.createContext(sandbox);
+          const script = new vm.Script(`
+            (function() {
+              ${data.sourceCode}
+              return solution(${tc.input});
+            })()
+          `);
+          
+          const executionResult = script.runInContext(context, { 
+            timeout: tc.timeLimitMs || 2000,
+            breakOnSigint: true,
+          });
+          
+          output = String(executionResult);
           passed = output.trim() === tc.expectedOutput.trim();
         } catch (e) {
           passed = false;

@@ -14,7 +14,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { name: "Assignments", path: "/assignments" },
     { name: "Analytics", path: "/analytics" },
     { name: "Live", path: "/live" },
+    { name: "Cohorts", path: "/cohorts" },
     { name: "Readiness", path: "/readiness" },
+    { name: "AI Interview", path: "/interview" },
     { name: "Notifications", path: "/notifications" },
   ];
 
