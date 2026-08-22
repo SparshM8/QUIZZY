@@ -71,9 +71,19 @@ const attemptSchema = new Schema<AttemptDocument>(
   { timestamps: true }
 );
 
+// Core query optimization indexes
 attemptSchema.index({ testId: 1, studentId: 1 });
 attemptSchema.index({ studentId: 1 });
 attemptSchema.index({ status: 1, submittedAt: 1 });
+
+// High-volume violation log indexing
+// We index by violation type and timestamp to allow efficient filtering and cleanup
+attemptSchema.index({ "violations.type": 1, "violations.timestamp": -1 });
+
+// Automated Data Retention Policy (TTL Index)
+// In high-volume environments, we may want to auto-archive or delete old attempts
+// This index will automatically remove attempts that are older than 180 days (in seconds)
+// attemptSchema.index({ createdAt: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 attemptSchema.set("toJSON", { virtuals: true });
 attemptSchema.set("toObject", { virtuals: true });
 attemptSchema.virtual("id").get(function () {

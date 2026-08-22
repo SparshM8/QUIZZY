@@ -20,6 +20,8 @@ export default function TakeTestPage() {
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const answersRef = useRef<Record<string, unknown>>({});
   const [remainingMs, setRemainingMs] = useState(0);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const syncQueue = useRef<{ type: string; data: any }[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [violations, setViolations] = useState(0);
@@ -53,18 +55,32 @@ export default function TakeTestPage() {
   useEffect(() => {
     if (!attemptId) return;
     const load = async () => {
-      const res = await api.get<{
-        success: boolean;
-        data: { attempt: AttemptDto; remainingMs: number; questions: TestQuestion[] };
-      }>(`/api/tests/attempts/${attemptId}/state`);
-      setQuestions(res.data.questions);
-      setRemainingMs(res.data.remainingMs);
-      setViolations(res.data.attempt.violations?.length || 0);
-      const map: Record<string, unknown> = {};
-      for (const a of res.data.attempt.answers) {
-        map[a.questionId] = a.answer;
+      // Try loading from local storage first (offline resilience)
+      const localData = localStorage.getItem(`quizzy_attempt_${attemptId}`);
+      if (localData) {
+        const parsed = JSON.parse(localData);
+        setAnswers(parsed.answers);
+        setRemainingMs(parsed.remainingMs);
       }
-      setAnswers(map);
+
+      try {
+        const res = await api.get<{
+          success: boolean;
+          data: { attempt: AttemptDto; remainingMs: number; questions: TestQuestion[] };
+        }>(`/api/tests/attempts/${attemptId}/state`);
+        setQuestions(res.data.questions);
+        setRemainingMs(res.data.remainingMs);
+        setViolations(res.data.attempt.violations?.length || 0);
+        
+        // Merge server state with local if needed, or prefer server as source of truth
+        const map: Record<string, unknown> = {};
+        for (const a of res.data.attempt.answers) {
+          map[a.questionId] = a.answer;
+        }
+        setAnswers(prev => ({ ...map, ...prev }));
+      } catch (err) {
+        console.error("Failed to fetch state from server, using local buffer", err);
+      }
     };
     load();
 
@@ -85,15 +101,35 @@ export default function TakeTestPage() {
     }, 15000);
 
     autosaveTimer.current = setInterval(async () => {
-      if (!attemptId || Object.keys(answersRef.current).length === 0) return;
-      try {
-        await api.patch(`/api/tests/attempts/${attemptId}/answers`, {
-          answers: Object.entries(answersRef.current).map(([questionId, answer]) => ({ questionId, answer })),
-        });
-      } catch {
-        // autosave is best-effort
+      if (!attemptId) return;
+      
+      // 1. Buffer to Local Storage
+      localStorage.setItem(`quizzy_attempt_${attemptId}`, JSON.stringify({
+        answers: answersRef.current,
+        remainingMs,
+        timestamp: new Date().toISOString()
+      }));
+
+      // 2. Sync with Server (if online)
+      if (navigator.onLine) {
+        try {
+          // Process any queued items first
+          while (syncQueue.current.length > 0) {
+            const item = syncQueue.current[0];
+            if (item.type === "violation") {
+              await api.post(`/api/tests/attempts/${attemptId}/violations`, item.data);
+            }
+            syncQueue.current.shift();
+          }
+
+          await api.patch(`/api/tests/attempts/${attemptId}/answers`, {
+            answers: Object.entries(answersRef.current).map(([questionId, answer]) => ({ questionId, answer })),
+          });
+        } catch (err) {
+          console.error("Autosave sync failed, will retry", err);
+        }
       }
-    }, 30000);
+    }, 10000); // More frequent autosave for resilience
 
     return () => {
       if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
@@ -205,19 +241,25 @@ export default function TakeTestPage() {
             const detected = predictions.find(p => suspiciousObjects.includes(p.class) && p.score > 0.6);
             
             if (detected) {
-              api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
-                `/api/tests/attempts/${attemptId}/violations`, 
-                {
-                  type: "ai_detection",
-                  details: `AI Detection: Suspicious object identified (${detected.class})`,
-                }
-              ).then((res) => {
-                setViolations(res.data.violationCount);
-                if (res.data.autoSubmitted) {
-                  alert("Test auto-submitted due to excessive proctoring violations (AI Detection).");
-                  navigate(`/tests/${testId}/attempts/${attemptId}/result`);
-                }
-              }).catch(console.error);
+              const violationData = {
+                type: "ai_detection" as const,
+                details: `AI Detection: Suspicious object identified (${detected.class})`,
+              };
+
+              if (navigator.onLine) {
+                api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
+                  `/api/tests/attempts/${attemptId}/violations`, 
+                  violationData
+                ).then((res) => {
+                  setViolations(res.data.violationCount);
+                  if (res.data.autoSubmitted) {
+                    alert("Test auto-submitted due to excessive proctoring violations (AI Detection).");
+                    navigate(`/tests/${testId}/attempts/${attemptId}/result`);
+                  }
+                }).catch(console.error);
+              } else {
+                syncQueue.current.push({ type: "violation", data: violationData });
+              }
             }
           }
         }, 3000); // Check every 3 seconds to save resources
@@ -248,10 +290,19 @@ export default function TakeTestPage() {
   };
 
   useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     const t = setInterval(() => {
       setRemainingMs((ms) => Math.max(0, ms - 1000));
     }, 1000);
-    return () => clearInterval(t);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      clearInterval(t);
+    };
   }, []);
 
   const minutes = Math.floor(remainingMs / 60000);
@@ -338,7 +389,14 @@ export default function TakeTestPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="mx-auto max-w-3xl px-4 py-6">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-bold">Test Attempt</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-bold">Test Attempt</h1>
+            {!isOnline && (
+              <span className="flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 uppercase">
+                <i className="fas fa-wifi-slash"></i> Offline
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
             <div className="relative h-12 w-16 overflow-hidden rounded bg-black border border-gray-300">
               <video
