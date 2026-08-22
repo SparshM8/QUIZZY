@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { AttemptDto, AttemptAnswer } from "../api/types";
+import * as tf from "@tensorflow/tfjs";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
 
 interface TestQuestion {
   questionId: string;
@@ -26,6 +28,9 @@ export default function TakeTestPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(true);
+  const modelRef = useRef<cocoSsd.ObjectDetection | null>(null);
+  const detectionInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const start = useCallback(async () => {
     if (!testId) return;
@@ -93,6 +98,7 @@ export default function TakeTestPage() {
     return () => {
       if (heartbeatTimer.current) clearInterval(heartbeatTimer.current);
       if (autosaveTimer.current) clearInterval(autosaveTimer.current);
+      if (detectionInterval.current) clearInterval(detectionInterval.current);
       if (stream) stream.getTracks().forEach(track => track.stop());
     };
   }, [attemptId, navigate, testId, stream]);
@@ -183,6 +189,39 @@ export default function TakeTestPage() {
         if (videoRef.current) {
           videoRef.current.srcObject = s;
         }
+        
+        // Load AI Model
+        setIsModelLoading(true);
+        await tf.ready();
+        const model = await cocoSsd.load();
+        modelRef.current = model;
+        setIsModelLoading(false);
+
+        // Start Detection Loop
+        detectionInterval.current = setInterval(async () => {
+          if (videoRef.current && modelRef.current && videoRef.current.readyState === 4) {
+            const predictions = await modelRef.current.detect(videoRef.current);
+            const suspiciousObjects = ["cell phone", "book", "laptop", "remote"];
+            const detected = predictions.find(p => suspiciousObjects.includes(p.class) && p.score > 0.6);
+            
+            if (detected) {
+              api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
+                `/api/tests/attempts/${attemptId}/violations`, 
+                {
+                  type: "ai_detection",
+                  details: `AI Detection: Suspicious object identified (${detected.class})`,
+                }
+              ).then((res) => {
+                setViolations(res.data.violationCount);
+                if (res.data.autoSubmitted) {
+                  alert("Test auto-submitted due to excessive proctoring violations (AI Detection).");
+                  navigate(`/tests/${testId}/attempts/${attemptId}/result`);
+                }
+              }).catch(console.error);
+            }
+          }
+        }, 3000); // Check every 3 seconds to save resources
+
       } catch (err) {
         api.post<{ success: boolean; data: { violationCount: number; autoSubmitted?: boolean } }>(
           `/api/tests/attempts/${attemptId}/violations`, 
@@ -249,7 +288,7 @@ export default function TakeTestPage() {
             <p>• <strong>Strict Proctoring Enabled:</strong></p>
             <ul className="list-disc list-inside ml-2">
               <li>Fullscreen mode is mandatory.</li>
-              <li>Webcam monitoring will be active.</li>
+              <li>Webcam monitoring with <strong>AI Object Detection</strong>.</li>
               <li>Tab switching and copy-pasting are disabled.</li>
             </ul>
           </div>
@@ -259,6 +298,18 @@ export default function TakeTestPage() {
           >
             Start Test
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isModelLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent mx-auto"></div>
+          <h2 className="text-lg font-semibold text-slate-900">Initializing AI Proctoring...</h2>
+          <p className="text-sm text-slate-500 mt-2">Loading security models for assessment integrity.</p>
         </div>
       </div>
     );

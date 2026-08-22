@@ -31,7 +31,7 @@ export interface AttemptDocument extends Document {
   durationMinutes: number;
   attemptNumber: number;
   violations: Array<{
-    type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "other";
+    type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "ai_detection" | "other";
     timestamp: Date;
     details?: string;
   }>;
@@ -62,7 +62,7 @@ const attemptSchema = new Schema<AttemptDocument>(
     attemptNumber: { type: Number, default: 1 },
     violations: [
       {
-        type: { type: String, enum: ["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "other"], required: true },
+        type: { type: String, enum: ["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "ai_detection", "other"], required: true },
         timestamp: { type: Date, default: Date.now },
         details: { type: String },
       },

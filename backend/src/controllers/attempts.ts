@@ -188,10 +188,10 @@ export const logViolation = async (req: Request, res: Response, next: NextFuncti
     if (!attempt) throw new AppError(404, "NOT_FOUND", "Active attempt not found");
 
     const { type, details } = req.body as { 
-      type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "other"; 
+      type: "tab_switch" | "copy_paste" | "fullscreen_exit" | "webcam_violation" | "ai_detection" | "other"; 
       details?: string 
     };
-    if (!["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "other"].includes(type)) {
+    if (!["tab_switch", "copy_paste", "fullscreen_exit", "webcam_violation", "ai_detection", "other"].includes(type)) {
       throw new AppError(400, "VALIDATION_ERROR", "Invalid violation type");
     }
 
