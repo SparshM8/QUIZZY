@@ -90,8 +90,20 @@ export const listAssignments = async (req: Request, res: Response, next: NextFun
 
 export const getAssignment = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const authReq = req as unknown as AuthenticatedRequest;
     const assignment = await Assignment.findById(req.params.id);
-    if (!assignment) throw new AppError(404, "NOT_FOUND", "Assignment not found");
+    if (!assignment) {
+      throw new AppError(404, "NOT_FOUND", "Assignment not found");
+    }
+    if (authReq.user!.role === "student" && assignment.status !== "published") {
+      throw new AppError(404, "NOT_FOUND", "Assignment not found");
+    }
+    if (
+      authReq.user!.role === "teacher" &&
+      String(assignment.createdBy) !== authReq.user!.sub
+    ) {
+      throw new AppError(403, "FORBIDDEN", "You can only access your own assignments");
+    }
     res.json({ success: true, data: toSafeObject(assignment) });
   } catch (err) {
     next(err);
@@ -106,7 +118,21 @@ export const updateAssignment = async (req: Request, res: Response, next: NextFu
     if (String(assignment.createdBy) !== authReq.user!.sub && authReq.user!.role !== "admin") {
       throw new AppError(403, "FORBIDDEN", "Only the creator or an admin can edit this assignment");
     }
-    Object.assign(assignment, req.body);
+    const body = req.body as Record<string, unknown>;
+    const allowedFields = [
+      "title",
+      "description",
+      "dueAt",
+      "maxPoints",
+      "allowedFileTypes",
+      "rubric",
+      "status",
+    ];
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        (assignment as unknown as Record<string, unknown>)[field] = body[field];
+      }
+    }
     await assignment.save();
 
     if (assignment.status === "published" && req.body.status === "published") {
@@ -136,6 +162,10 @@ export const updateAssignment = async (req: Request, res: Response, next: NextFu
 export const submitAssignment = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authReq = req as unknown as AuthenticatedRequest;
+    if (authReq.user!.role !== "student") {
+      throw new AppError(403, "FORBIDDEN", "Only students can submit assignments");
+    }
+
     const file = (req as Request & { file?: Express.Multer.File }).file;
     if (!file) throw new AppError(400, "VALIDATION_ERROR", "A submission file is required");
 
@@ -144,7 +174,18 @@ export const submitAssignment = async (req: Request, res: Response, next: NextFu
     if (assignment.status !== "published") {
       throw new AppError(409, "CONFLICT", "This assignment is not accepting submissions");
     }
-    if (new Date() > assignment.dueAt) {
+
+    const extension = path.extname(file.originalname).toLowerCase();
+    const allowedFileTypes = assignment.allowedFileTypes.map((type) =>
+      type.toLowerCase().startsWith(".") ? type.toLowerCase() : `.${type.toLowerCase()}`
+    );
+    if (!allowedFileTypes.includes(extension)) {
+      throw new AppError(
+        400,
+        "VALIDATION_ERROR",
+        `File type ${extension} is not allowed for this assignment`
+      );
+    }if (new Date() > assignment.dueAt) {
       throw new AppError(409, "CONFLICT", "The submission deadline has passed");
     }
 
@@ -205,7 +246,35 @@ export const gradeSubmission = async (req: Request, res: Response, next: NextFun
     if (!Array.isArray(grades) || grades.length === 0) {
       throw new AppError(400, "VALIDATION_ERROR", "grades array is required");
     }
-    submission.grades = grades;
+
+    const rubricMap = new Map(
+      assignment.rubric.map((criterion) => [criterion.title, criterion.maxPoints])
+    );
+    for (const grade of grades) {
+      const maxPoints = rubricMap.get(grade.criterion);
+      if (maxPoints === undefined) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          `Unknown grading criterion: ${grade.criterion}`
+        );
+      }
+      if (grade.points < 0 || grade.points > maxPoints) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          `Points for "${grade.criterion}" must be between 0 and ${maxPoints}`
+        );
+      }
+    }
+    const totalGrade = grades.reduce((sum, g) => sum + g.points, 0);
+    if (totalGrade > assignment.maxPoints) {
+      throw new AppError(
+        400,
+        "VALIDATION_ERROR",
+        `Total grade cannot exceed ${assignment.maxPoints} points`
+      );
+    }submission.grades = grades;
     submission.totalGrade = grades.reduce((sum, g) => sum + g.points, 0);
     submission.gradedBy = new Types.ObjectId(authReq.user!.sub);
     submission.gradedAt = new Date();
@@ -228,7 +297,23 @@ export const gradeSubmission = async (req: Request, res: Response, next: NextFun
 
 export const listSubmissions = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const submissions = await Submission.find({ assignmentId: req.params.id }).sort({
+    const authReq = req as unknown as AuthenticatedRequest;
+    if (authReq.user!.role === "student") {
+      throw new AppError(403, "FORBIDDEN", "Students cannot review submissions");
+    }
+    const assignment = await Assignment.findById(req.params.id);
+    if (!assignment) {
+      throw new AppError(404, "NOT_FOUND", "Assignment not found");
+    }
+    if (
+      authReq.user!.role === "teacher" &&
+      String(assignment.createdBy) !== authReq.user!.sub
+    ) {
+      throw new AppError(403, "FORBIDDEN", "You can only review submissions for your own assignments");
+    }
+    const submissions = await Submission.find({
+      assignmentId: assignment._id,
+    }).sort({
       submittedAt: -1,
     });
     res.json({ success: true, data: submissions.map((s) => toSafeObject(s)) });

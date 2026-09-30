@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api, apiBaseUrl } from "../api/client";
+import { api } from "../api/client";
 import { useAuth } from "../context/auth";
 
 interface AssignmentDto {
@@ -22,7 +22,9 @@ interface SubmissionDto {
 export default function AssignmentDetailPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const { session } = useAuth();
-  const isTeacher = session?.user.role !== "student";
+  const isTeacher = session?.user.role === "teacher";
+  const isAdmin = session?.user.role === "admin";
+  const canReviewSubmissions = isTeacher || isAdmin;
   const [assignment, setAssignment] = useState<AssignmentDto | null>(null);
   const [submission, setSubmission] = useState<SubmissionDto | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -46,15 +48,10 @@ export default function AssignmentDetailPage() {
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    try {
-      const token = localStorage.getItem("quizzy.accessToken");
-      const res = await fetch(`${apiBaseUrl}/api/assignments/${assignmentId}/submissions`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      const data = (await res.json()) as { success?: boolean; data?: SubmissionDto; error?: { message: string } };
-      if (!res.ok) throw new Error(data.error?.message ?? "Upload failed");
+    try {      const data = await api.post<{ success: boolean; data: SubmissionDto }>(
+        `/api/assignments/${assignmentId}/submissions`,
+        formData
+      );
       setSubmission(data.data ?? null);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Upload failed");
@@ -72,7 +69,7 @@ export default function AssignmentDetailPage() {
       <h1 className="text-2xl font-bold">{assignment.title}</h1>
       <p className="mt-1 text-sm text-gray-600">{assignment.description}</p>
       <p className="mt-2 text-sm text-gray-500">
-        Due {new Date(assignment.dueAt).toLocaleString()} · {assignment.maxPoints} points
+        Due {new Date(assignment.dueAt).toLocaleString()} Â· {assignment.maxPoints} points
       </p>
 
       {assignment.rubric.length > 0 && (
@@ -90,7 +87,7 @@ export default function AssignmentDetailPage() {
       )}
 
       <div className="mt-6 rounded-lg border bg-white p-4">
-        {isTeacher ? (
+        {canReviewSubmissions ? (
           <div>
             <h2 className="font-semibold">Review submissions</h2>
             <p className="mt-1 text-sm text-gray-500">
@@ -106,7 +103,7 @@ export default function AssignmentDetailPage() {
                 Graded: {submission.totalGrade} / {assignment.maxPoints}
               </p>
             ) : (
-              <p className="mt-1 text-sm text-yellow-700">Submitted — awaiting grading.</p>
+              <p className="mt-1 text-sm text-yellow-700">Submitted â€” awaiting grading.</p>
             )}
           </div>
         ) : (
@@ -122,7 +119,7 @@ export default function AssignmentDetailPage() {
               disabled={uploading}
               className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              {uploading ? "Uploading…" : "Submit"}
+              {uploading ? "Uploadingâ€¦" : "Submit"}
             </button>
           </form>
         )}
