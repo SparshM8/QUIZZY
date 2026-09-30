@@ -246,7 +246,35 @@ export const gradeSubmission = async (req: Request, res: Response, next: NextFun
     if (!Array.isArray(grades) || grades.length === 0) {
       throw new AppError(400, "VALIDATION_ERROR", "grades array is required");
     }
-    submission.grades = grades;
+
+    const rubricMap = new Map(
+      assignment.rubric.map((criterion) => [criterion.title, criterion.maxPoints])
+    );
+    for (const grade of grades) {
+      const maxPoints = rubricMap.get(grade.criterion);
+      if (maxPoints === undefined) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          `Unknown grading criterion: ${grade.criterion}`
+        );
+      }
+      if (grade.points < 0 || grade.points > maxPoints) {
+        throw new AppError(
+          400,
+          "VALIDATION_ERROR",
+          `Points for "${grade.criterion}" must be between 0 and ${maxPoints}`
+        );
+      }
+    }
+    const totalGrade = grades.reduce((sum, g) => sum + g.points, 0);
+    if (totalGrade > assignment.maxPoints) {
+      throw new AppError(
+        400,
+        "VALIDATION_ERROR",
+        `Total grade cannot exceed ${assignment.maxPoints} points`
+      );
+    }submission.grades = grades;
     submission.totalGrade = grades.reduce((sum, g) => sum + g.points, 0);
     submission.gradedBy = new Types.ObjectId(authReq.user!.sub);
     submission.gradedAt = new Date();
