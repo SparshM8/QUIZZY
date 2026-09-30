@@ -248,12 +248,8 @@ export const gradeSubmission = async (req: Request, res: Response, next: NextFun
 export const listSubmissions = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authReq = req as unknown as AuthenticatedRequest;
-    if (authReq.user!.role !== "teacher" && authReq.user!.role !== "admin") {
-      throw new AppError(
-        403,
-        "FORBIDDEN",
-        "Only teachers and admins can review submissions"
-      );
+    if (authReq.user!.role === "student") {
+      throw new AppError(403, "FORBIDDEN", "Students cannot review submissions");
     }
     const assignment = await Assignment.findById(req.params.id);
     if (!assignment) {
@@ -263,19 +259,14 @@ export const listSubmissions = async (req: Request, res: Response, next: NextFun
       authReq.user!.role === "teacher" &&
       String(assignment.createdBy) !== authReq.user!.sub
     ) {
-      throw new AppError(
-        403,
-        "FORBIDDEN",
-        "You can only review submissions for your assignments"
-      );
+      throw new AppError(403, "FORBIDDEN", "You can only review submissions for your own assignments");
     }
     const submissions = await Submission.find({
-      assignmentId: req.params.id,
-    }).sort({ submittedAt: -1 });
-    res.json({
-      success: true,
-      data: submissions.map((s) => toSafeObject(s)),
+      assignmentId: assignment._id,
+    }).sort({
+      submittedAt: -1,
     });
+    res.json({ success: true, data: submissions.map((s) => toSafeObject(s)) });
   } catch (err) {
     next(err);
   }
