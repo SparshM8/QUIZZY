@@ -205,12 +205,16 @@ export const bulkUploadQuestions = async (req: Request, res: Response, next: Nex
       // Basic validation for bulk upload
       if (!record.title || !record.statement || !record.type) continue;
 
+      const points = Number(record.points);
+      if (!Number.isInteger(points) || points < 1 || points > 1000) {
+        continue;
+      }
       const payload: any = {
         title: record.title,
         statement: record.statement,
         type: record.type,
         difficulty: record.difficulty || "easy",
-        points: parseInt(record.points) || 10,
+        points,
         createdBy: authReq.user!.sub,
         status: "approved", // Bulk upload by faculty is pre-approved
         tags: record.tags ? record.tags.split(",").map((t: string) => t.trim()) : [],
