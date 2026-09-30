@@ -216,15 +216,29 @@ export const bulkUploadQuestions = async (req: Request, res: Response, next: Nex
         tags: record.tags ? record.tags.split(",").map((t: string) => t.trim()) : [],
       };
 
-      // Handle MCQ choices from CSV (format: Choice 1|Choice 2|Choice 3)
+      // Handle MCQ choices from CSV (format: Choice 1|Choice 2|Choice 3|Choice 4)
       if (record.choices && record.answerIndex !== undefined) {
-        const choices = record.choices.split("|").map((text: string, idx: number) => ({
-          id: String(idx + 1),
-          text: text.trim(),
-        }));
+        const choices = record.choices
+          .split("|")
+          .map((text: string, idx: number) => ({
+            id: String(idx + 1),
+            text: text.trim(),
+          }))
+          .filter((choice: { id: string; text: string }) => choice.text.length > 0);
+        const answerIndex = Number(record.answerIndex);
+        if (choices.length !== 4) {
+          continue;
+        }
+        if (
+          !Number.isInteger(answerIndex) ||
+          answerIndex < 0 ||
+          answerIndex >= choices.length
+        ) {
+          continue;
+        }
         payload.options = {
           choices,
-          answerIds: [String(parseInt(record.answerIndex) + 1)],
+          answerIds: [String(answerIndex + 1)],
         };
       }
 
