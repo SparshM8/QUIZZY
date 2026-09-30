@@ -163,12 +163,9 @@ export const submitAssignment = async (req: Request, res: Response, next: NextFu
   try {
     const authReq = req as unknown as AuthenticatedRequest;
     if (authReq.user!.role !== "student") {
-      throw new AppError(
-        403,
-        "FORBIDDEN",
-        "Only students can submit assignments"
-      );
+      throw new AppError(403, "FORBIDDEN", "Only students can submit assignments");
     }
+
     const file = (req as Request & { file?: Express.Multer.File }).file;
     if (!file) throw new AppError(400, "VALIDATION_ERROR", "A submission file is required");
 
