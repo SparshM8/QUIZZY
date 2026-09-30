@@ -174,7 +174,18 @@ export const submitAssignment = async (req: Request, res: Response, next: NextFu
     if (assignment.status !== "published") {
       throw new AppError(409, "CONFLICT", "This assignment is not accepting submissions");
     }
-    if (new Date() > assignment.dueAt) {
+
+    const extension = path.extname(file.originalname).toLowerCase();
+    const allowedFileTypes = assignment.allowedFileTypes.map((type) =>
+      type.toLowerCase().startsWith(".") ? type.toLowerCase() : `.${type.toLowerCase()}`
+    );
+    if (!allowedFileTypes.includes(extension)) {
+      throw new AppError(
+        400,
+        "VALIDATION_ERROR",
+        `File type ${extension} is not allowed for this assignment`
+      );
+    }if (new Date() > assignment.dueAt) {
       throw new AppError(409, "CONFLICT", "The submission deadline has passed");
     }
 
