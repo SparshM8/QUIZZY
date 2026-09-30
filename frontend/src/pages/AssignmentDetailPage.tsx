@@ -22,7 +22,9 @@ interface SubmissionDto {
 export default function AssignmentDetailPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const { session } = useAuth();
-  const isTeacher = session?.user.role !== "student";
+  const isTeacher = session?.user.role === "teacher";
+  const isAdmin = session?.user.role === "admin";
+  const canReviewSubmissions = isTeacher || isAdmin;
   const [assignment, setAssignment] = useState<AssignmentDto | null>(null);
   const [submission, setSubmission] = useState<SubmissionDto | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -90,7 +92,7 @@ export default function AssignmentDetailPage() {
       )}
 
       <div className="mt-6 rounded-lg border bg-white p-4">
-        {isTeacher ? (
+        {canReviewSubmissions ? (
           <div>
             <h2 className="font-semibold">Review submissions</h2>
             <p className="mt-1 text-sm text-gray-500">
