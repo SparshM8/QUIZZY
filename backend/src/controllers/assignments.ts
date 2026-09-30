@@ -90,8 +90,20 @@ export const listAssignments = async (req: Request, res: Response, next: NextFun
 
 export const getAssignment = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const authReq = req as unknown as AuthenticatedRequest;
     const assignment = await Assignment.findById(req.params.id);
-    if (!assignment) throw new AppError(404, "NOT_FOUND", "Assignment not found");
+    if (!assignment) {
+      throw new AppError(404, "NOT_FOUND", "Assignment not found");
+    }
+    if (authReq.user!.role === "student" && assignment.status !== "published") {
+      throw new AppError(404, "NOT_FOUND", "Assignment not found");
+    }
+    if (
+      authReq.user!.role === "teacher" &&
+      String(assignment.createdBy) !== authReq.user!.sub
+    ) {
+      throw new AppError(403, "FORBIDDEN", "You can only access your own assignments");
+    }
     res.json({ success: true, data: toSafeObject(assignment) });
   } catch (err) {
     next(err);
