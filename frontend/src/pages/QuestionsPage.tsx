@@ -328,7 +328,7 @@ export default function QuestionsPage() {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
           {questions.map((q) => (
-            <div key={q.id || Math.random()} className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all">
+            <div key={q.id} className="flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all">
               <div className="p-5 flex-1">
                 <div className="mb-3 flex items-start justify-between">
                   <h3 className="text-base font-bold text-gray-900 line-clamp-1">{q.title || "Untitled Question"}</h3>
