@@ -127,9 +127,27 @@ export const updateQuestion = async (req: Request, res: Response, next: NextFunc
   }
 
   const body = req.body as Record<string, unknown>;
-  if (body.type) requireQuestionFields(body, body.type as QuestionType);
-
-  Object.assign(question, body);
+  if (body.type) {
+    requireQuestionFields(body, body.type as QuestionType);
+  }
+  const allowedFields = [
+    "title",
+    "statement",
+    "type",
+    "difficulty",
+    "tags",
+    "points",
+    "options",
+    "fill",
+    "numerical",
+    "coding",
+    "explanation",
+  ];
+  for (const field of allowedFields) {
+    if (body[field] !== undefined) {
+      (question as unknown as Record<string, unknown>)[field] = body[field];
+    }
+  }
   if (question.isModified("status") && question.status === "draft") {
     question.status = "pending";
   }
