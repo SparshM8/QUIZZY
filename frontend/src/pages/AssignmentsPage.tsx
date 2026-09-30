@@ -20,7 +20,9 @@ export default function AssignmentsPage() {
   const { session } = useAuth();
   const [assignments, setAssignments] = useState<AssignmentDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const isTeacher = session?.user.role !== "student";
+  const isTeacher = session?.user.role === "teacher";
+  const isAdmin = session?.user.role === "admin";
+  const canManageAssignments = isTeacher || isAdmin;
 
   useEffect(() => {
     api
@@ -34,7 +36,7 @@ export default function AssignmentsPage() {
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Assignments</h1>
-        {isTeacher && (
+        {canManageAssignments && (
           <a
             href="/assignments/new"
             className="rounded bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
@@ -79,7 +81,7 @@ export default function AssignmentsPage() {
                   href={`/assignments/${a.id}`}
                   className="rounded bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
                 >
-                  {isTeacher ? "Review" : "Submit"}
+                  {canManageAssignments ? "Review" : "Submit"}
                 </a>
               </div>
             </div>
