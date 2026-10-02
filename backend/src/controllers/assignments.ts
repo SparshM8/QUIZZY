@@ -151,11 +151,13 @@ export const submitAssignment = async (req: Request, res: Response, next: NextFu
     const existing = await Submission.findOne({
       assignmentId: assignment._id,
       studentId: new Types.ObjectId(authReq.user!.sub),
-    });
-    if (existing) {
+    });    if (existing) {
       existing.fileName = file.originalname;
       existing.fileUrl = file.path;
+      existing.grades = [];
       existing.totalGrade = undefined;
+      existing.gradedBy = undefined;
+      existing.gradedAt = undefined;
       await existing.save();
       return res.json({ success: true, data: toSafeObject(existing) });
     }
