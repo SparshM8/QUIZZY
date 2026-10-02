@@ -106,7 +106,21 @@ export const updateAssignment = async (req: Request, res: Response, next: NextFu
     if (String(assignment.createdBy) !== authReq.user!.sub && authReq.user!.role !== "admin") {
       throw new AppError(403, "FORBIDDEN", "Only the creator or an admin can edit this assignment");
     }
-    Object.assign(assignment, req.body);
+    const body = req.body as Record<string, unknown>;
+    const allowedFields = [
+      "title",
+      "description",
+      "dueAt",
+      "maxPoints",
+      "allowedFileTypes",
+      "rubric",
+      "status",
+    ];
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        (assignment as unknown as Record<string, unknown>)[field] = body[field];
+      }
+    }
     await assignment.save();
 
     if (assignment.status === "published" && req.body.status === "published") {
